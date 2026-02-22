@@ -46,7 +46,8 @@ PHASE 4: 핵심 페이지 구현
 
 PHASE 5: 라우팅 & 완성
 ├── Step 27. App.tsx — 전체 라우팅 설정
-└── Step 28. main.tsx — 진입점
+├── Step 28. main.tsx — 진입점
+└── Step 29. 개발 서버 실행 확인
 ```
 
 ---
@@ -72,22 +73,33 @@ npm install
 
 #### 1-2. 필수 라이브러리 설치
 
+> ⚠️ **ESLint 버전 충돌 해결**: Vite 프로젝트의 경우 ESLint 10과 기존 패키지 간 호환성 문제가 발생할 수 있습니다. `--legacy-peer-deps` 옵션을 사용하여 설치하세요.
+
 ```bash
 # 라우팅
-npm install react-router-dom
+npm install react-router-dom --legacy-peer-deps
 
 # 아이콘 라이브러리 (300+ 아이콘)
-npm install lucide-react
+npm install lucide-react --legacy-peer-deps
 
 # 차트 관련
-npm install chart.js react-chartjs-2 recharts
+npm install chart.js react-chartjs-2 recharts --legacy-peer-deps
 
 # Tailwind CSS 설치
-npm install -D tailwindcss postcss autoprefixer
+npm install -D tailwindcss postcss autoprefixer --legacy-peer-deps
 npx tailwindcss init -p
 ```
 
 > 💡 **lucide-react를 선택한 이유**: 트리 쉐이킹이 가능하여 사용한 아이콘만 번들에 포함됩니다. Font Awesome보다 번들 크기가 작고, React 네이티브 컴포넌트로 제공됩니다.
+
+> ⚠️ **만약 `--legacy-peer-deps` 없이 설치 시 에러가 발생하면**:
+> ```bash
+> # ESLint 플러그인 최신 버전으로 업그레이드 (ESLint 10 지원)
+> npm install eslint-plugin-react-hooks@latest --legacy-peer-deps
+>
+> # 또는 영구적으로 설정
+> npm config set legacy-peer-deps true
+> ```
 
 #### 1-3. 폴더 구조 생성
 
@@ -2701,7 +2713,45 @@ createRoot(document.getElementById('root')!).render(
 )
 ```
 
-✅ **Step 28 완료!**
+---
+
+### 🔍 Step 29. 개발 서버 실행 확인
+
+이제 모든 설정이 완료되었습니다! 개발 서버를 실행하여 제대로 작동하는지 확인해보세요.
+
+```bash
+# 개발 서버 실행
+npm run dev
+```
+
+**실행 결과 예시:**
+```
+VITE v6.x.x  ready in XXX ms
+
+➜  Local:   http://localhost:5173/
+➜  Network: http://192.168.x.x:5173/
+```
+
+> ⚠️ **이미 5173 포트를 사용 중인 경우**: Vite가 자동으로 다른 포트(5174, 5175...)를 사용합니다.
+
+**브라우저에서 확인할 내용:**
+1. **Sidebar** - 좌측 네비게이션 메뉴 (햄버거 아이콘으로 접기/펴기)
+2. **Header** - 상단 바 (검색, 알림 벨, 프로필)
+3. **Dashboard** - 4개 통계 카드 (Revenue, Users, Orders, Conversion)
+4. **버튼들** - Primary, Secondary, Outline, Ghost, Danger 버튼
+
+**✅ 성공적으로 실행되었다면:**
+- 어두운 남색 배경 (#0E1726)
+- 민트색 강조색 (#00FFCC)
+- 카드 네 모서리의 꺾쇠 장식
+- 부드러운 애니메이션
+
+**❌ 에러가 발생한다면:**
+1. 터미널 에러 메시지 확인
+2. 브라우저 개발자 도구(F12) 콘솔 확인
+3. `npm install --legacy-peer-deps` 재실행
+
+✅ **Step 28-29 완료!** 🎉
 
 ---
 
