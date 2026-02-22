@@ -8,6 +8,8 @@ import MainLayout from './layouts/MainLayout'
 import Dashboard from './pages/dashboard/Dashboard'
 import Analytics from './pages/dashboard/Analytics'
 import Products from './pages/Products'
+import Settings from './pages/Settings'
+import Calendar from './pages/Calendar'
 
 function App() {
     return (
@@ -27,8 +29,13 @@ function App() {
                     {/* Products 페이지 */}
                     <Route path="products" element={<Products />} />
 
+                    {/* Settings 페이지 */}
+                    <Route path="settings" element={<Settings />} />
+
+                    {/* Calendar 페이지 */}
+                    <Route path="calendar" element={<Calendar />} />
+
                     {/* 다른 페이지들 (나중에 추가) */}
-                    {/* <Route path="settings" element={<Settings />} /> */}
                 </Route>
             </Routes>
         </Router>

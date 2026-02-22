@@ -667,13 +667,16 @@ import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import HudCard from '../components/common/HudCard'
 import Button from '../components/common/Button'
 
-// 이벤트 더미 데이터
+// ⭐ 더미 이벤트 데이터 (8개)
 const events = [
     { id: 1, title: 'Team Meeting', date: '2024-02-15', type: 'meeting', time: '10:00' },
     { id: 2, title: 'Project Deadline', date: '2024-02-20', type: 'deadline', time: '17:00' },
     { id: 3, title: 'Code Review', date: '2024-02-15', type: 'task', time: '14:00' },
     { id: 4, title: 'Sprint Planning', date: '2024-02-22', type: 'meeting', time: '09:00' },
     { id: 5, title: 'Release v2.0', date: '2024-02-28', type: 'release', time: '12:00' },
+    { id: 6, title: 'Client Call', date: '2024-02-25', type: 'meeting', time: '15:00' },
+    { id: 7, title: 'Design Review', date: '2024-02-18', type: 'task', time: '11:00' },
+    { id: 8, title: 'Q1 Planning', date: '2024-02-12', type: 'meeting', time: '16:00' },
 ]
 
 // ⭐ 이벤트 타입별 색상 맵핑
@@ -778,6 +781,42 @@ const Calendar = () => {
                     })}
                 </div>
             </HudCard>
+
+            {/* ⭐ 선택된 날짜의 이벤트 상세 */}
+            {selectedDate && (
+                <HudCard
+                    title={`Events for ${monthNames[month]} ${selectedDate}`}
+                    subtitle="Scheduled activities"
+                >
+                    <div className="space-y-3">
+                        {getEventsForDate(selectedDate).map(event => (
+                            <div
+                                key={event.id}
+                                className="flex items-start gap-4 p-4 rounded-lg bg-hud-bg-primary hover:bg-hud-bg-hover transition-hud"
+                            >
+                                {/* 이벤트 타입별 인디케이터 */}
+                                <div className={`w-2 h-2 mt-2 rounded-full flex-shrink-0 ${
+                                    event.type === 'meeting' ? 'bg-hud-accent-primary' :
+                                    event.type === 'deadline' ? 'bg-hud-accent-danger' :
+                                    event.type === 'task' ? 'bg-hud-accent-info' :
+                                    'bg-hud-accent-success'
+                                }`} />
+                                <div className="flex-1">
+                                    <p className="text-sm font-medium text-hud-text-primary">{event.title}</p>
+                                    <p className="text-xs text-hud-text-muted mt-0.5">
+                                        {event.time} • {event.type}
+                                    </p>
+                                </div>
+                            </div>
+                        ))}
+                        {getEventsForDate(selectedDate).length === 0 && (
+                            <p className="text-sm text-hud-text-muted text-center py-8">
+                                No events scheduled for this day.
+                            </p>
+                        )}
+                    </div>
+                </HudCard>
+            )}
         </div>
     )
 }
@@ -816,6 +855,8 @@ const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).pad
 | **Spread 결합** | `[...empty, ...days]` 두 배열 합치기 |
 | **padStart** | 날짜 포매팅 (1자리 → 2자리) |
 | **slice + 조건부** | 표시 제한 + "더보기" 패턴 |
+| **Record<string, string>** | 유틸리티 타입 — 동적 키 접근 |
+| **Truthiness narrowing** | `day === null` 체크 후 분기 |
 
 ✅ **Step 17 완료!**
 
