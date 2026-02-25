@@ -1,0 +1,1649 @@
+// ============================================
+// 네이버 부동산 API 서버
+// Hono 기반 백엔드 서버
+// ============================================
+
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import prisma from '../lib/db/prisma';
+import tokenManager from '../lib/scraper/token-manager';
+
+const app = new Hono();
+
+// CORS 설정
+app.use('/*', cors({
+  origin: (origin) => {
+    const allowedOrigins = [
+      'http://localhost:5173',
+      'http://localhost:5174',
+      'http://192.168.219.57:5173',
+      'http://175.195.36.16:5173',
+      'http://imapplepie20.tplinkdns.com:5173',
+    ];
+    // 정규식으로 tplinkdns.com 서브도메인 허용
+    if (origin && /\.tplinkdns\.com:5173$/.test(origin)) {
+      return origin;
+    }
+    return allowedOrigins.includes(origin) ? origin : allowedOrigins[0];
+  },
+  credentials: true,
+}));
+
+// 헬스 체크
+app.get('/api/health', (c) => {
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ============================================
+// 1. 인증 & 토큰 관리 API
+// ============================================
+
+/**
+ * GET /api/token/status
+ * 현재 토큰 상태 확인
+ */
+app.get('/api/token/status', async (c) => {
+  try {
+    const tokenRecord = await prisma.naverToken.findFirst({
+      where: {
+        expiresAt: {
+          gte: new Date(),
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+
+    return c.json({
+      hasToken: !!tokenRecord,
+      expiresAt: tokenRecord?.expiresAt || null,
+      isExpired: !tokenRecord,
+    });
+  } catch (error) {
+    console.error('Token status error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Token status check failed',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/token/refresh
+ * 토큰 강제 갱신
+ */
+app.post('/api/token/refresh', async (c) => {
+  try {
+    const token = await tokenManager.refreshToken();
+
+    return c.json({
+      success: true,
+      message: 'Token refreshed successfully',
+    });
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    return c.json(
+      {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/token/manual
+ * 토큰 수동 입력 (개발용)
+ * Body: { token: string }
+ */
+app.post('/api/token/manual', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { token } = body;
+
+    if (!token || typeof token !== 'string') {
+      return c.json({ error: 'token is required' }, 400);
+    }
+
+    // 토큰 만료 시간 (23시간 후)
+    const expiresAt = new Date(Date.now() + 23 * 60 * 60 * 1000);
+
+    // 기존 토큰 삭제 후 새 토큰 저장
+    await prisma.naverToken.deleteMany({});
+    await prisma.naverToken.create({
+      data: {
+        accessToken: token,
+        expiresAt,
+      },
+    });
+
+    return c.json({
+      success: true,
+      message: 'Token saved successfully',
+      expiresAt,
+    });
+  } catch (error) {
+    console.error('Token manual save error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to save token',
+      },
+      500
+    );
+  }
+});
+
+// ============================================
+// 2. 지역 관리 API
+// ============================================
+
+/**
+ * GET /api/regions
+ * 지역 목록 조회 (DB에서만 조회 - 네이버 API 의존 제거)
+ * @query cortarNo - 지역 코드 (기본: 0000000000)
+ */
+app.get('/api/regions', async (c) => {
+  try {
+    const cortarNo = c.req.query('cortarNo') || '0000000000';
+
+    // DB에서 직접 조회 (네이버 API 호출 없음)
+    const regions = await prisma.region.findMany({
+      where: {
+        parentCortarNo: cortarNo === '0000000000' ? null : cortarNo,
+      },
+      orderBy: {
+        cortarName: 'asc',
+      },
+    });
+
+    // 네이버 API 형식과 동일하게 응답
+    return c.json({
+      regionList: regions.map(r => ({
+        cortarNo: r.cortarNo,
+        cortarName: r.cortarName,
+        cortarType: r.cortarType,
+        centerLat: r.centerLat,
+        centerLon: r.centerLon,
+      })),
+    });
+  } catch (error) {
+    console.error('Regions fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch regions',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/regions/tree
+ * 지역 트리 구조 조회 (시/도 → 시/군/구 → 읍/면/동)
+ */
+app.get('/api/regions/tree', async (c) => {
+  try {
+    const regions = await prisma.region.findMany({
+      orderBy: [{ depth: 'asc' }, { cortarName: 'asc' }],
+    });
+
+    // 트리 구조 변환
+    interface RegionNode {
+      cortarNo: string;
+      cortarName: string;
+      cortarType: string;
+      depth: number;
+      parentCortarNo: string | null;
+      centerLat: number | null;
+      centerLon: number | null;
+      children?: RegionNode[];
+    }
+
+    const buildTree = (parentId: string | null): RegionNode[] => {
+      return regions
+        .filter((r) => r.parentCortarNo === parentId)
+        .map((region) => ({
+          cortarNo: region.cortarNo,
+          cortarName: region.cortarName,
+          cortarType: region.cortarType,
+          depth: region.depth,
+          parentCortarNo: region.parentCortarNo,
+          centerLat: region.centerLat,
+          centerLon: region.centerLon,
+          children: buildTree(region.cortarNo),
+        }));
+    };
+
+    const tree = buildTree(null);
+
+    return c.json({ tree });
+  } catch (error) {
+    console.error('Regions tree error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch region tree',
+      },
+      500
+    );
+  }
+});
+
+// ============================================
+// 3. 매물 API
+// ============================================
+
+/**
+ * GET /api/articles/complex/:complexNo
+ * 단지별 매물 목록 조회 (네이버 부동산 단지 상세 페이지 API)
+ * NOTE: /api/articles보다 먼저 정의해야 라우팅 순서 문제가 발생하지 않음
+ */
+app.get('/api/articles/complex/:complexNo', async (c) => {
+  try {
+    const complexNo = c.req.param('complexNo');
+    if (!complexNo) {
+      return c.json({ error: 'complexNo is required' }, 400);
+    }
+
+    const { default: naverLandClient } = await import('../lib/scraper/naver-client');
+    const response = await naverLandClient.getComplexArticles(complexNo, {
+      realEstateType: c.req.query('realEstateType') || 'APT:PRE',
+      tradeType: c.req.query('tradeType') || '',
+      page: c.req.query('page') ? parseInt(c.req.query('page')!) : 1,
+      order: c.req.query('order') || 'rank',
+      priceType: c.req.query('priceType') || 'RETAIL',
+      tag: c.req.query('tag') || '::'.repeat(4),
+      rentPriceMin: c.req.query('rentPriceMin') ? parseInt(c.req.query('rentPriceMin')!) : undefined,
+      rentPriceMax: c.req.query('rentPriceMax') ? parseInt(c.req.query('rentPriceMax')!) : undefined,
+      priceMin: c.req.query('priceMin') ? parseInt(c.req.query('priceMin')!) : undefined,
+      priceMax: c.req.query('priceMax') ? parseInt(c.req.query('priceMax')!) : undefined,
+      areaMin: c.req.query('areaMin') ? parseInt(c.req.query('areaMin')!) : undefined,
+      areaMax: c.req.query('areaMax') ? parseInt(c.req.query('areaMax')!) : undefined,
+      buildingNos: c.req.query('buildingNos') || '',
+      areaNos: c.req.query('areaNos') || '',
+    });
+
+    return c.json(response);
+  } catch (error) {
+    console.error('Complex articles fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch complex articles',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/articles
+ * 매물 목록 조회 (빌라/주택/원룸/상가 등)
+ */
+app.get('/api/articles', async (c) => {
+  try {
+    const cortarNo = c.req.query('cortarNo');
+    if (!cortarNo) {
+      return c.json({ error: 'cortarNo is required' }, 400);
+    }
+
+    const { default: naverLandClient } = await import('../lib/scraper/naver-client');
+    const response = await naverLandClient.getArticles({
+      cortarNo,
+      order: (c.req.query('order') as any) || 'rank',
+      realEstateType: c.req.query('realEstateType') || '',
+      tradeType: c.req.query('tradeType') || '',
+      priceMin: c.req.query('priceMin') ? parseInt(c.req.query('priceMin')!) : undefined,
+      priceMax: c.req.query('priceMax') ? parseInt(c.req.query('priceMax')!) : undefined,
+      areaMin: c.req.query('areaMin') ? parseInt(c.req.query('areaMin')!) : undefined,
+      areaMax: c.req.query('areaMax') ? parseInt(c.req.query('areaMax')!) : undefined,
+      page: c.req.query('page') ? parseInt(c.req.query('page')!) : 1,
+      markerId: c.req.query('markerId') || undefined,  // 특정 단지의 매물만 가져오기
+    });
+
+    // DB에 저장
+    if (response.articleList && Array.isArray(response.articleList)) {
+      for (const article of response.articleList) {
+        await prisma.property.upsert({
+          where: { articleNo: article.articleNo },
+          update: {
+            articleName: article.articleName,
+            articleStatus: article.articleStatus,
+            realEstateTypeCode: article.realEstateTypeCode,
+            realEstateTypeName: article.realEstateTypeName,
+            tradeTypeCode: article.tradeTypeCode,
+            tradeTypeName: article.tradeTypeName,
+            dealOrWarrantPrc: parseInt(article.dealOrWarrantPrc.replace(/,/g, '')) || null,
+            rentPrc: article.rentPrc ? parseInt(article.rentPrc) : null,
+            area1: article.area1,
+            area2: article.area2,
+            floorInfo: article.floorInfo,
+            direction: article.direction || null,
+            buildingName: article.buildingName || null,
+            latitude: parseFloat(article.latitude),
+            longitude: parseFloat(article.longitude),
+            cortarNo: article.cortarNo || cortarNo,
+            detailAddress: article.detailAddress,
+            articleConfirmYmd: article.articleConfirmYmd,
+            articleFeatureDesc: article.articleFeatureDesc,
+            tagList: JSON.stringify(article.tagList || []),
+            cpName: article.cpName || null,
+            realtorName: article.realtorName || null,
+            cpPcArticleUrl: article.cpPcArticleUrl || null,
+            cpMobileArticleUrl: article.cpMobileArticleUrl || null,
+          },
+          create: {
+            articleNo: article.articleNo,
+            articleName: article.articleName,
+            articleStatus: article.articleStatus,
+            realEstateTypeCode: article.realEstateTypeCode,
+            realEstateTypeName: article.realEstateTypeName,
+            tradeTypeCode: article.tradeTypeCode,
+            tradeTypeName: article.tradeTypeName,
+            dealOrWarrantPrc: parseInt(article.dealOrWarrantPrc.replace(/,/g, '')) || null,
+            rentPrc: article.rentPrc ? parseInt(article.rentPrc) : null,
+            area1: article.area1,
+            area2: article.area2,
+            floorInfo: article.floorInfo,
+            direction: article.direction || null,
+            buildingName: article.buildingName || null,
+            latitude: parseFloat(article.latitude),
+            longitude: parseFloat(article.longitude),
+            cortarNo: article.cortarNo || cortarNo,
+            detailAddress: article.detailAddress,
+            articleConfirmYmd: article.articleConfirmYmd,
+            articleFeatureDesc: article.articleFeatureDesc,
+            tagList: JSON.stringify(article.tagList || []),
+            cpName: article.cpName || null,
+            realtorName: article.realtorName || null,
+            cpPcArticleUrl: article.cpPcArticleUrl || null,
+            cpMobileArticleUrl: article.cpMobileArticleUrl || null,
+          },
+        });
+      }
+    }
+
+    return c.json(response);
+  } catch (error) {
+    console.error('Articles fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch articles',
+      },
+      500
+    );
+  }
+});
+
+// ============================================
+// 4. 단지 API (아파트/오피스텔)
+// ============================================
+
+/**
+ * GET /api/complexes
+ * 단지 목록 조회
+ */
+app.get('/api/complexes', async (c) => {
+  try {
+    const cortarNo = c.req.query('cortarNo');
+    if (!cortarNo) {
+      return c.json({ error: 'cortarNo is required' }, 400);
+    }
+
+    // 지역 정보에서 좌표 가져오기
+    const region = await prisma.region.findUnique({
+      where: { cortarNo },
+    });
+
+    let centerLat = 37.566427;  // 서울시 기본값
+    let centerLon = 126.977872;
+    let zoom = 16;
+
+    if (region && region.centerLat && region.centerLon) {
+      centerLat = region.centerLat;
+      centerLon = region.centerLon;
+    }
+
+    // zoom 레벨에 따른 boundary 계산
+    // zoom 16 = 약 0.02도 범위
+    const zoomLevel = c.req.query('zoom') ? parseInt(c.req.query('zoom')!) : 16;
+    const latDelta = 0.02 / Math.pow(2, zoomLevel - 14);
+    const lonDelta = 0.03 / Math.pow(2, zoomLevel - 14);
+
+    const { default: naverLandClient } = await import('../lib/scraper/naver-client');
+    const response = await naverLandClient.getComplexMarkers({
+      cortarNo,
+      realEstateType: (c.req.query('realEstateType') as any) || 'APT',
+      tradeType: (c.req.query('tradeType') as any) || 'A1',
+      zoom: zoomLevel,
+      leftLon: centerLon - lonDelta,
+      rightLon: centerLon + lonDelta,
+      topLat: centerLat + latDelta,
+      bottomLat: centerLat - latDelta,
+    });
+
+    // DB에 단지 정보 저장 (비동기)
+    if (response.complexMarkerList && Array.isArray(response.complexMarkerList)) {
+      for (const complex of response.complexMarkerList) {
+        await prisma.complex.upsert({
+          where: { complexNo: complex.markerId },
+          update: {
+            complexName: complex.complexName,
+            realEstateTypeCode: complex.realEstateTypeCode,
+            realEstateTypeName: complex.realEstateTypeName,
+            latitude: complex.latitude,
+            longitude: complex.longitude,
+            cortarNo,
+            completionYearMonth: complex.completionYearMonth,
+            totalDongCount: complex.totalDongCount,
+            totalHouseholdCount: complex.totalHouseholdCount,
+            floorAreaRatio: complex.floorAreaRatio,
+            minArea: complex.minArea ? parseFloat(complex.minArea) : null,
+            maxArea: complex.maxArea ? parseFloat(complex.maxArea) : null,
+            representativeArea: complex.representativeArea,
+            dealCount: complex.dealCount,
+            leaseCount: complex.leaseCount,
+            rentCount: complex.rentCount,
+            totalArticleCount: complex.totalArticleCount,
+          },
+          create: {
+            complexNo: complex.markerId,
+            complexName: complex.complexName,
+            realEstateTypeCode: complex.realEstateTypeCode,
+            realEstateTypeName: complex.realEstateTypeName,
+            latitude: complex.latitude,
+            longitude: complex.longitude,
+            cortarNo,
+            completionYearMonth: complex.completionYearMonth,
+            totalDongCount: complex.totalDongCount,
+            totalHouseholdCount: complex.totalHouseholdCount,
+            floorAreaRatio: complex.floorAreaRatio,
+            minArea: complex.minArea ? parseFloat(complex.minArea) : null,
+            maxArea: complex.maxArea ? parseFloat(complex.maxArea) : null,
+            representativeArea: complex.representativeArea,
+            dealCount: complex.dealCount,
+            leaseCount: complex.leaseCount,
+            rentCount: complex.rentCount,
+            totalArticleCount: complex.totalArticleCount,
+          },
+        });
+      }
+    }
+
+    // response가 배열인 경우 complexMarkerList로 감싸서 반환
+    if (Array.isArray(response)) {
+      return c.json({ complexMarkerList: response });
+    }
+
+    return c.json(response);
+  } catch (error) {
+    console.error('Complexes fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch complexes',
+      },
+      500
+    );
+  }
+});
+
+// ============================================
+// 5. 매물 상세 조회 API
+// ============================================
+
+/**
+ * GET /api/articles/:articleNo
+ * 매물 상세 조회 (DB에서)
+ */
+app.get('/api/articles/:articleNo', async (c) => {
+  try {
+    const articleNo = c.req.param('articleNo');
+
+    const property = await prisma.property.findUnique({
+      where: { articleNo },
+    });
+
+    if (!property) {
+      return c.json({ error: 'Article not found' }, 404);
+    }
+
+    // tagList JSON 파싱
+    const tagList = property.tagList ? JSON.parse(property.tagList) : [];
+
+    return c.json({
+      ...property,
+      tagList,
+    });
+  } catch (error) {
+    console.error('Article detail fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch article detail',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/articles/:articleNo/refresh
+ * 매물 정보 갱신 (네이버 API에서 다시 가져와서 DB 업데이트)
+ */
+app.get('/api/articles/:articleNo/refresh', async (c) => {
+  try {
+    const articleNo = c.req.param('articleNo');
+
+    // DB에서 기존 매물 정보 확인 (cortarNo 가져오기)
+    const existingProperty = await prisma.property.findUnique({
+      where: { articleNo },
+    });
+
+    if (!existingProperty) {
+      return c.json({ error: 'Article not found in DB' }, 404);
+    }
+
+    // 네이버 API에서 다시 가져오기
+    const { default: naverLandClient } = await import('../lib/scraper/naver-client');
+    const response = await naverLandClient.getArticles({
+      cortarNo: existingProperty.cortarNo,
+      realEstateType: existingProperty.realEstateTypeCode,
+      tradeType: existingProperty.tradeTypeCode,
+    });
+
+    // 해당 매물 찾기
+    const updatedArticle = response.articleList?.find(a => a.articleNo === articleNo);
+
+    if (!updatedArticle) {
+      return c.json({ error: 'Article not found in Naver API' }, 404);
+    }
+
+    // DB 업데이트
+    const updatedProperty = await prisma.property.update({
+      where: { articleNo },
+      data: {
+        articleName: updatedArticle.articleName,
+        articleStatus: updatedArticle.articleStatus,
+        dealOrWarrantPrc: parseInt(updatedArticle.dealOrWarrantPrc.replace(/,/g, '')) || null,
+        rentPrc: updatedArticle.rentPrc ? parseInt(updatedArticle.rentPrc) : null,
+        floorInfo: updatedArticle.floorInfo,
+        direction: updatedArticle.direction || null,
+        articleConfirmYmd: updatedArticle.articleConfirmYmd,
+        articleFeatureDesc: updatedArticle.articleFeatureDesc,
+        tagList: JSON.stringify(updatedArticle.tagList || []),
+      },
+    });
+
+    const tagList = updatedProperty.tagList ? JSON.parse(updatedProperty.tagList) : [];
+
+    return c.json({
+      ...updatedProperty,
+      tagList,
+    });
+  } catch (error) {
+    console.error('Article refresh error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to refresh article',
+      },
+      500
+    );
+  }
+});
+
+// ============================================
+// 6. 통계 API
+// ============================================
+
+/**
+ * GET /api/statistics/overview
+ * 전체 통계 개요 (대시보드용)
+ */
+app.get('/api/statistics/overview', async (c) => {
+  try {
+    const [totalProperties, totalComplexes, avgPriceData] = await Promise.all([
+      prisma.property.count(),
+      prisma.complex.count(),
+      prisma.property.aggregate({
+        where: { dealOrWarrantPrc: { not: null } },
+        _avg: { dealOrWarrantPrc: true },
+      }),
+    ]);
+
+    return c.json({
+      totalProperties,
+      totalComplexes,
+      avgPrice: avgPriceData._avg.dealOrWarrantPrc || 0,
+      priceChange: 2.5, // TODO: 이전 데이터와 비교해서 계산
+    });
+  } catch (error) {
+    console.error('Overview statistics error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch overview statistics',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/statistics/regions
+ * 지역별 매물 통계 (상위 N개)
+ * @query limit - 반환할 지역 수 (기본: 10)
+ */
+app.get('/api/statistics/regions', async (c) => {
+  try {
+    const limit = c.req.query('limit') ? parseInt(c.req.query('limit')!) : 10;
+    const cortarNo = c.req.query('cortarNo');
+    const realEstateType = c.req.query('realEstateType');
+    const tradeType = c.req.query('tradeType');
+
+    const whereClause: any = {};
+
+    if (cortarNo) {
+      // 해당 지역과 하위 지역 모두 포함
+      const childRegions = await prisma.region.findMany({
+        where: {
+          OR: [
+            { cortarNo },
+            { parentCortarNo: cortarNo },
+          ],
+        },
+        select: { cortarNo: true },
+      });
+
+      const cortarNos = childRegions.map(r => r.cortarNo);
+      whereClause.cortarNo = { in: cortarNos };
+    }
+
+    if (realEstateType) {
+      whereClause.realEstateTypeCode = realEstateType;
+    }
+
+    if (tradeType) {
+      whereClause.tradeTypeCode = tradeType;
+    }
+
+    // 지역별 통계 집계
+    const regionStats = await prisma.$queryRaw<Array<{
+      cortarNo: string;
+      cortarName: string;
+      count: bigint;
+      avgPrice: number | null;
+      minPrice: number | null;
+      maxPrice: number | null;
+    }>>`
+      SELECT
+        r.cortarNo,
+        r.cortarName,
+        COUNT(p.articleNo) as count,
+        COALESCE(AVG(p.dealOrWarrantPrc), 0) as avgPrice,
+        COALESCE(MIN(p.dealOrWarrantPrc), 0) as minPrice,
+        COALESCE(MAX(p.dealOrWarrantPrc), 0) as maxPrice
+      FROM Region r
+      LEFT JOIN Property p ON r.cortarNo = p.cortarNo
+      WHERE r.depth = 1 OR COUNT(p.articleNo) > 0
+      GROUP BY r.cortarNo, r.cortarName
+      HAVING COUNT(p.articleNo) > 0
+      ORDER BY count DESC
+      LIMIT ${limit}
+    `;
+
+    return c.json({
+      statistics: regionStats.map((stat) => ({
+        cortarNo: stat.cortarNo,
+        cortarName: stat.cortarName,
+        count: Number(stat.count),
+        avgPrice: Number(stat.avgPrice),
+        minPrice: Number(stat.minPrice),
+        maxPrice: Number(stat.maxPrice),
+      })),
+    });
+  } catch (error) {
+    console.error('Region statistics error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch region statistics',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/statistics/types
+ * 매물타입별 통계
+ */
+app.get('/api/statistics/types', async (c) => {
+  try {
+    const typeStats = await prisma.property.groupBy({
+      by: ['realEstateTypeCode'],
+      _count: true,
+      _avg: { dealOrWarrantPrc: true },
+    });
+
+    const statistics = typeStats.map(stat => ({
+      realEstateType: stat.realEstateTypeCode,
+      count: stat._count,
+      avgPrice: stat._avg.dealOrWarrantPrc || 0,
+    }));
+
+    return c.json({ statistics });
+  } catch (error) {
+    console.error('Type statistics error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch type statistics',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/statistics/complexes/:complexNo
+ * 단지별 매물 통계
+ */
+app.get('/api/statistics/complexes/:complexNo', async (c) => {
+  try {
+    const complexNo = c.req.param('complexNo');
+
+    // 단지 정보
+    const complex = await prisma.complex.findUnique({
+      where: { complexNo },
+    });
+
+    if (!complex) {
+      return c.json({ error: 'Complex not found' }, 404);
+    }
+
+    // 단지 매물 통계
+    const properties = await prisma.property.findMany({
+      where: { complexNo },
+    });
+
+    const totalCount = properties.length;
+    const byTradeType = properties.reduce((acc, p) => {
+      acc[p.tradeTypeName] = (acc[p.tradeTypeName] || 0) + 1;
+      return acc;
+    }, {} as Record<string, number>);
+
+    const avgPrice = properties
+      .filter(p => p.dealOrWarrantPrc)
+      .reduce((sum, p) => sum + (p.dealOrWarrantPrc || 0), 0) / (properties.filter(p => p.dealOrWarrantPrc).length || 1);
+
+    return c.json({
+      complex: {
+        complexNo: complex.complexNo,
+        complexName: complex.complexName,
+        realEstateTypeName: complex.realEstateTypeName,
+        totalHouseholdCount: complex.totalHouseholdCount,
+      },
+      statistics: {
+        totalArticles: totalCount,
+        averagePrice: Math.round(avgPrice),
+        byTradeType,
+        dealCount: complex.dealCount,
+        leaseCount: complex.leaseCount,
+        rentCount: complex.rentCount,
+      },
+    });
+  } catch (error) {
+    console.error('Complex statistics error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch complex statistics',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/statistics/price-trend
+ * 가격 추이 데이터 (월별 평균가)
+ * @query cortarNo - 지역 코드
+ * @query complexNo - 단지 코드
+ * @query period - 기간 (3month, 6month, 1year, all)
+ */
+app.get('/api/statistics/price-trend', async (c) => {
+  try {
+    const cortarNo = c.req.query('cortarNo');
+    const complexNo = c.req.query('complexNo');
+    const period = c.req.query('period') || '6month';
+
+    const whereClause: any = {
+      dealOrWarrantPrc: { not: null },
+    };
+
+    if (cortarNo) {
+      whereClause.cortarNo = cortarNo;
+    }
+
+    if (complexNo) {
+      whereClause.complexNo = complexNo;
+    }
+
+    // 기간 계산
+    const now = new Date();
+    const monthsBack = period === '3month' ? 3 : period === '6month' ? 6 : period === '1year' ? 12 : 24;
+
+    // 매월 데이터 집계
+    const monthlyData: Array<{ month: string; avgPrice: number; count: number }> = [];
+
+    for (let i = 0; i <= monthsBack; i++) {
+      const monthDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const yearMonth = monthDate.toISOString().slice(0, 7); // YYYY-MM
+
+      const startOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth(), 1);
+      const endOfMonth = new Date(monthDate.getFullYear(), monthDate.getMonth() + 1, 0, 23, 59, 59);
+
+      const properties = await prisma.property.findMany({
+        where: {
+          ...whereClause,
+          articleConfirmYmd: {
+            gte: startOfMonth.toISOString().slice(0, 10).replace(/-/g, ''),
+            lte: endOfMonth.toISOString().slice(0, 10).replace(/-/g, ''),
+          },
+        },
+      });
+
+      if (properties.length > 0) {
+        const avgPrice = properties
+          .filter(p => p.dealOrWarrantPrc)
+          .reduce((sum, p) => sum + (p.dealOrWarrantPrc || 0), 0) /
+          properties.filter(p => p.dealOrWarrantPrc).length;
+
+        monthlyData.push({
+          month: yearMonth,
+          avgPrice: Math.round(avgPrice),
+          count: properties.length,
+        });
+      }
+    }
+
+    // 시간순 정렬
+    monthlyData.reverse();
+
+    return c.json({
+      trend: monthlyData.map(d => ({
+        date: d.month,
+        price: d.avgPrice,
+        count: d.count,
+      })),
+    });
+  } catch (error) {
+    console.error('Price trend error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch price trend',
+      },
+      500
+    );
+  }
+});
+
+// ============================================
+// 8. 사용자 관련 API
+// ============================================
+
+/**
+ * GET /api/user/saved-properties
+ * 저장한 매물 목록 조회
+ */
+app.get('/api/user/saved-properties', async (c) => {
+  try {
+    // TODO: 인증에서 userId 추출 (현재는 임시)
+    const userId = c.req.header('x-user-id') || 'temp-user';
+
+    const savedProperties = await prisma.savedProperty.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return c.json({ savedProperties });
+  } catch (error) {
+    console.error('Saved properties fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch saved properties',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/user/saved-properties
+ * 매물 저장 (단건)
+ */
+app.post('/api/user/saved-properties', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+    const body = await c.req.json();
+    const { articleNo, complexNo, complexName, cachedName, cachedPrice, cachedType, cachedTrade, articleData } = body;
+
+    if (!articleNo) {
+      return c.json({ error: 'articleNo is required' }, 400);
+    }
+
+    // user 자동 생성 (없으면)
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId, name: userId, provider: 'local' },
+    });
+
+    const saved = await prisma.savedProperty.upsert({
+      where: {
+        userId_articleNo: {
+          userId,
+          articleNo,
+        },
+      },
+      update: {
+        isFavorite: true,
+        cachedName,
+        cachedPrice,
+        cachedType,
+        cachedTrade,
+        complexName,
+        articleData: articleData ? JSON.stringify(articleData) : undefined,
+      },
+      create: {
+        userId,
+        articleNo,
+        complexNo,
+        complexName,
+        cachedName,
+        cachedPrice,
+        cachedType,
+        cachedTrade,
+        articleData: articleData ? JSON.stringify(articleData) : undefined,
+      },
+    });
+
+    return c.json({ saved, success: true });
+  } catch (error) {
+    console.error('Save property error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to save property',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/user/saved-properties/bulk
+ * 매물 일괄 저장 (정규 매물 저장용)
+ * Body: { articles: Article[], complexNo?: string, complexName?: string }
+ * NOTE: /bulk 경로가 단건 POST보다 먼저 정의되어야 함
+ */
+app.post('/api/user/saved-properties/bulk', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+    const body = await c.req.json();
+    const { articles, complexNo, complexName } = body;
+
+    if (!articles || !Array.isArray(articles) || articles.length === 0) {
+      return c.json({ error: 'articles array is required' }, 400);
+    }
+
+    // user 자동 생성 (없으면)
+    await prisma.user.upsert({
+      where: { id: userId },
+      update: {},
+      create: { id: userId, name: userId, provider: 'local' },
+    });
+
+    let savedCount = 0;
+    let skippedCount = 0;
+
+    for (const article of articles) {
+      try {
+        await prisma.savedProperty.upsert({
+          where: {
+            userId_articleNo: {
+              userId,
+              articleNo: article.articleNo,
+            },
+          },
+          update: {
+            cachedName: article.articleName || article.buildingName,
+            cachedType: article.realEstateTypeName,
+            cachedTrade: article.tradeTypeName,
+            complexNo: complexNo || undefined,
+            complexName: complexName || article.buildingName,
+            articleData: JSON.stringify(article),
+          },
+          create: {
+            userId,
+            articleNo: article.articleNo,
+            complexNo: complexNo || undefined,
+            complexName: complexName || article.buildingName,
+            cachedName: article.articleName || article.buildingName,
+            cachedType: article.realEstateTypeName,
+            cachedTrade: article.tradeTypeName,
+            articleData: JSON.stringify(article),
+          },
+        });
+        savedCount++;
+      } catch (err) {
+        console.error(`Failed to save article ${article.articleNo}:`, err);
+        skippedCount++;
+      }
+    }
+
+    return c.json({
+      success: true,
+      savedCount,
+      skippedCount,
+      totalRequested: articles.length,
+    });
+  } catch (error) {
+    console.error('Bulk save error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to bulk save properties',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/user/saved-properties/:articleNo
+ * 매물 저장 취소 (단건)
+ */
+app.delete('/api/user/saved-properties/:articleNo', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+    const articleNo = c.req.param('articleNo');
+
+    await prisma.savedProperty.deleteMany({
+      where: { userId, articleNo },
+    });
+
+    return c.json({ success: true });
+  } catch (error) {
+    console.error('Unsave property error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to unsave property',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * DELETE /api/user/saved-properties
+ * 매물 일괄 삭제
+ * Body: { articleNos: string[] }
+ */
+app.delete('/api/user/saved-properties', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+    const body = await c.req.json();
+    const { articleNos } = body;
+
+    if (!articleNos || !Array.isArray(articleNos) || articleNos.length === 0) {
+      return c.json({ error: 'articleNos array is required' }, 400);
+    }
+
+    const result = await prisma.savedProperty.deleteMany({
+      where: {
+        userId,
+        articleNo: { in: articleNos },
+      },
+    });
+
+    return c.json({ success: true, deletedCount: result.count });
+  } catch (error) {
+    console.error('Bulk delete error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to bulk delete properties',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/user/search-conditions
+ * 저장한 검색 조건 목록
+ */
+app.get('/api/user/search-conditions', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+
+    const conditions = await prisma.searchCondition.findMany({
+      where: { userId },
+      orderBy: [{ isDefault: 'desc' }, { createdAt: 'desc' }],
+    });
+
+    return c.json({ conditions });
+  } catch (error) {
+    console.error('Search conditions fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch search conditions',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/user/search-conditions
+ * 검색 조건 저장
+ */
+app.post('/api/user/search-conditions', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+    const body = await c.req.json();
+    const { name, cortarNo, regionName, realEstateTypes, tradeTypes, priceMin, priceMax, areaMin, areaMax, defaultOrder } = body;
+
+    const condition = await prisma.searchCondition.create({
+      data: {
+        userId,
+        name,
+        cortarNo,
+        regionName,
+        realEstateTypes: realEstateTypes ? String(realEstateTypes) : undefined,
+        tradeTypes: tradeTypes ? String(tradeTypes) : undefined,
+        priceMin,
+        priceMax,
+        areaMin,
+        areaMax,
+        defaultOrder,
+      },
+    });
+
+    return c.json({ condition, success: true });
+  } catch (error) {
+    console.error('Save search condition error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to save search condition',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/user/price-alerts
+ * 가격 알림 설정
+ */
+app.post('/api/user/price-alerts', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+    const body = await c.req.json();
+    const { name, articleNo, complexNo, cortarNo, alertType, targetPrice, changeRate } = body;
+
+    const alert = await prisma.priceAlert.create({
+      data: {
+        userId,
+        name,
+        articleNo,
+        complexNo,
+        cortarNo,
+        alertType,
+        targetPrice,
+        changeRate,
+      },
+    });
+
+    return c.json({ alert, success: true });
+  } catch (error) {
+    console.error('Create price alert error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to create price alert',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/user/price-alerts
+ * 가격 알림 목록
+ */
+app.get('/api/user/price-alerts', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+
+    const alerts = await prisma.priceAlert.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    return c.json({ alerts });
+  } catch (error) {
+    console.error('Price alerts fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch price alerts',
+      },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/user/summary
+ * 사용자 요약 정보
+ */
+app.get('/api/user/summary', async (c) => {
+  try {
+    const userId = c.req.header('x-user-id') || 'temp-user';
+
+    const [savedCount, alertCount, conditionCount] = await Promise.all([
+      prisma.savedProperty.count({ where: { userId } }),
+      prisma.priceAlert.count({ where: { userId, isActive: true } }),
+      prisma.searchCondition.count({ where: { userId } }),
+    ]);
+
+    return c.json({
+      savedCount,
+      activeAlertCount: alertCount,
+      conditionCount,
+    });
+  } catch (error) {
+    console.error('User summary fetch error:', error);
+    return c.json(
+      {
+        error: error instanceof Error ? error.message : 'Failed to fetch user summary',
+      },
+      500
+    );
+  }
+});
+
+// ============================================
+// 9. 인증 API (회원가입/로그인)
+// ============================================
+
+// 비밀번호 해시 함수 (Web Crypto API 사용)
+async function hashPassword(password: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// 비밀번호 검증 함수
+async function verifyPassword(password: string, hashedPassword: string): Promise<boolean> {
+  const inputHash = await hashPassword(password);
+  return inputHash === hashedPassword;
+}
+
+// JWT 토큰 생성/검증 (간단한 구현)
+function generateToken(userId: string): string {
+  const payload = {
+    userId,
+    exp: Math.floor(Date.now() / 1000) + (7 * 24 * 60 * 60), // 7일
+  };
+  return Buffer.from(JSON.stringify(payload)).toString('base64');
+}
+
+function decodeToken(token: string): { userId: string; exp: number } | null {
+  try {
+    const payload = JSON.parse(Buffer.from(token, 'base64').toString());
+    if (payload.exp < Date.now() / 1000) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * POST /api/auth/register
+ * 회원가입
+ */
+app.post('/api/auth/register', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { email, name, password } = body;
+
+    if (!email || !password) {
+      return c.json({ error: '이메일과 비밀번호는 필수입니다.' }, 400);
+    }
+
+    // 이메일 중복 확인
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (existingUser) {
+      return c.json({ error: '이미 존재하는 이메일입니다.' }, 400);
+    }
+
+    // 비밀번호 해시
+    const hashedPassword = await hashPassword(password);
+
+    // 사용자 생성
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        password: hashedPassword,
+        provider: 'local',
+      },
+    });
+
+    // 토큰 생성
+    const token = generateToken(user.id);
+
+    return c.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Register error:', error);
+    return c.json(
+      { error: error instanceof Error ? error.message : '회원가입에 실패했습니다.' },
+      500
+    );
+  }
+});
+
+/**
+ * POST /api/auth/login
+ * 로그인
+ */
+app.post('/api/auth/login', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { email, password } = body;
+
+    if (!email || !password) {
+      return c.json({ error: '이메일과 비밀번호는 필수입니다.' }, 400);
+    }
+
+    // 사용자 조회
+    const user = await prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      return c.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401);
+    }
+
+    // 비밀번호 검증
+    if (!user.password) {
+      return c.json({ error: '소셜 로그인으로 가입된 계정입니다.' }, 400);
+    }
+
+    const isValid = await verifyPassword(password, user.password);
+    if (!isValid) {
+      return c.json({ error: '이메일 또는 비밀번호가 올바르지 않습니다.' }, 401);
+    }
+
+    // 마지막 로인 시간 업데이트
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // 토큰 생성
+    const token = generateToken(user.id);
+
+    return c.json({
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+      },
+      token,
+    });
+  } catch (error) {
+    console.error('Login error:', error);
+    return c.json(
+      { error: error instanceof Error ? error.message : '로그인에 실패했습니다.' },
+      500
+    );
+  }
+});
+
+/**
+ * GET /api/auth/me
+ * 현재 사용자 정보 조회
+ */
+app.get('/api/auth/me', async (c) => {
+  try {
+    const authHeader = c.req.header('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return c.json({ error: '인증되지 않았습니다.' }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const payload = decodeToken(token);
+
+    if (!payload) {
+      return c.json({ error: '유효하지 않은 토큰입니다.' }, 401);
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        provider: true,
+        createdAt: true,
+        themeMode: true,
+        accentColor: true,
+        fontSize: true,
+        borderRadius: true,
+        compactMode: true,
+      },
+    });
+
+    if (!user) {
+      return c.json({ error: '사용자를 찾을 수 없습니다.' }, 404);
+    }
+
+    return c.json({ user });
+  } catch (error) {
+    console.error('Auth me error:', error);
+    return c.json({ error: '사용자 정보 조회에 실패했습니다.' }, 500);
+  }
+});
+
+/**
+ * POST /api/auth/logout
+ * 로그아웃 (클라이언트에서 토큰 삭제)
+ */
+app.post('/api/auth/logout', async (c) => {
+  return c.json({ success: true });
+});
+
+/**
+ * POST /api/auth/make-admin
+ * 관리자 권한 부여 (개발용)
+ */
+app.post('/api/auth/make-admin', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { email } = body;
+
+    if (!email) {
+      return c.json({ error: '이메일은 필수입니다.' }, 400);
+    }
+
+    const user = await prisma.user.update({
+      where: { email },
+      data: { role: 'admin' },
+      select: { id: true, email: true, name: true, role: true },
+    });
+
+    if (!user) {
+      return c.json({ error: '사용자를 찾을 수 없습니다.' }, 404);
+    }
+
+    return c.json({ success: true, user });
+  } catch (error) {
+    console.error('Make admin error:', error);
+    return c.json(
+      { error: error instanceof Error ? error.message : '관리자 권한 부여에 실패했습니다.' },
+      500
+    );
+  }
+});
+
+/**
+ * PUT /api/user/theme
+ * 테마 설정 저장
+ */
+app.put('/api/user/theme', async (c) => {
+  try {
+    const authHeader = c.req.header('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return c.json({ error: '인증이 필요합니다.' }, 401);
+    }
+
+    const token = authHeader.substring(7);
+    const payload = JSON.parse(atob(token));
+
+    const body = await c.req.json();
+    const { themeMode, accentColor, fontSize, borderRadius, compactMode } = body;
+
+    // 유효성 검사
+    const validThemeModes = ['light', 'dark', 'system', 'smart'];
+    const validAccentColors = ['cyan', 'indigo', 'pink', 'orange', 'green', 'red'];
+    const validFontSizes = ['small', 'medium', 'large'];
+    const validBorderRadii = ['sharp', 'medium', 'rounded'];
+
+    if (themeMode && !validThemeModes.includes(themeMode)) {
+      return c.json({ error: '잘못된 테마 모드입니다.' }, 400);
+    }
+    if (accentColor && !validAccentColors.includes(accentColor)) {
+      return c.json({ error: '잘못된 강조 색상입니다.' }, 400);
+    }
+    if (fontSize && !validFontSizes.includes(fontSize)) {
+      return c.json({ error: '잘못된 글자 크기입니다.' }, 400);
+    }
+    if (borderRadius && !validBorderRadii.includes(borderRadius)) {
+      return c.json({ error: '잘못된 모서리 둥글기입니다.' }, 400);
+    }
+    if (typeof compactMode !== 'undefined' && typeof compactMode !== 'boolean') {
+      return c.json({ error: '잘못된 컴팩트 모드 값입니다.' }, 400);
+    }
+
+    const updateData: any = {};
+    if (themeMode) updateData.themeMode = themeMode;
+    if (accentColor) updateData.accentColor = accentColor;
+    if (fontSize) updateData.fontSize = fontSize;
+    if (borderRadius) updateData.borderRadius = borderRadius;
+    if (typeof compactMode !== 'undefined') updateData.compactMode = compactMode;
+
+    const user = await prisma.user.update({
+      where: { id: payload.userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        themeMode: true,
+        accentColor: true,
+        fontSize: true,
+        borderRadius: true,
+        compactMode: true,
+      },
+    });
+
+    return c.json({ success: true, user });
+  } catch (error) {
+    console.error('Theme update error:', error);
+    return c.json(
+      { error: error instanceof Error ? error.message : '테마 설정 저장에 실패했습니다.' },
+      500
+    );
+  }
+});
+
+// ============================================
+// 지도 프록시 (네이버/카카오)
+// ============================================
+
+/**
+ * GET /api/proxy/naver-map
+ * 네이버 지도 JS 프록시 (인증 우회)
+ */
+app.get('/api/proxy/naver-map', async (c) => {
+  try {
+    const clientId = process.env.VITE_NAVER_MAP_CLIENT_ID || '8e5c59zw88';
+    const url = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`;
+
+    const response = await fetch(url);
+    const content = await response.text();
+
+    return c.html(content);
+  } catch (error) {
+    console.error('Naver Map proxy error:', error);
+    return c.html('console.error("Failed to load naver map");', 500);
+  }
+});
+
+/**
+ * GET /api/proxy/kakao-map
+ * 카카오 맵 SDK 프록시 (CORS 우회)
+ */
+app.get('/api/proxy/kakao-map', async (c) => {
+  try {
+    const appKey = process.env.VITE_KAKAO_MAP_APP_KEY || 'dedee21cec058fab2ff59137baaa0d1b';
+    const url = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${appKey}&autoload=false`;
+
+    console.log('[Kakao Map Proxy] Fetching from:', url);
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://developers.kakao.com/',
+      },
+    });
+
+    if (!response.ok) {
+      console.error('[Kakao Map Proxy] Fetch failed:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('[Kakao Map Proxy] Error response:', errorText);
+      return c.text(`console.error("[Kakao Map Proxy] Fetch failed: ${response.status}");`, 500);
+    }
+
+    const content = await response.text();
+    console.log('[Kakao Map Proxy] Content length:', content.length);
+
+    // JavaScript로 반환하고 CORS 헤더 추가
+    return c.text(content, 200, {
+      'Content-Type': 'application/javascript; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+    });
+  } catch (error) {
+    console.error('Kakao Map proxy error:', error);
+    return c.text('console.error("[Kakao Map Proxy] Failed to load");', 500, {
+      'Content-Type': 'application/javascript; charset=utf-8',
+    });
+  }
+});
+
+// Bun 서버용 내보내기
+export default {
+  port: 3001,
+  hostname: '0.0.0.0', // 모든 인터페이스에서 듣기 (tplinkdns.com 접속 허용)
+  fetch: app.fetch,
+  idleTimeout: 120, // 2분 타임아웃
+};

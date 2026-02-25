@@ -1,5 +1,7 @@
+import { useEffect } from 'react'
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import MainLayout from './layouts/MainLayout'
+import { useThemeStore } from './stores/themeStore'
 
 // Dashboard
 import Dashboard from './pages/dashboard/Dashboard'
@@ -56,11 +58,45 @@ import TablePlugins from './pages/tables/TablePlugins'
 // Charts
 import ChartJs from './pages/charts/ChartJs'
 
+// Real Estate
+import RealEstate from './pages/real-estate/RealEstate'
+import TempPropertyList from './pages/real-estate/TempPropertyList'
+import ComplexListPage from './pages/real-estate/ComplexListPage'
+import ApartmentTempPropertyList from './pages/real-estate/ApartmentTempPropertyList'
+import ApartmentRegularPropertyList from './pages/real-estate/ApartmentRegularPropertyList'
+
 // Misc Pages
 import Error404 from './pages/Error404'
 import ComingSoon from './pages/ComingSoon'
 
+// Auth
+import PrivateRoute from './components/auth/PrivateRoute'
+
 function App() {
+    const { mode, getEffectiveMode } = useThemeStore()
+
+    // Handle system theme changes
+    useEffect(() => {
+        const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+
+        const handleChange = () => {
+            if (mode === 'system') {
+                const effectiveMode = getEffectiveMode()
+                const root = document.documentElement
+                root.classList.remove('light', 'dark', 'smart')
+                root.classList.add(effectiveMode)
+            }
+        }
+
+        // Listen for OS theme changes
+        mediaQuery.addEventListener('change', handleChange)
+
+        // Also apply the correct class initially or when mode changes
+        handleChange()
+
+        return () => mediaQuery.removeEventListener('change', handleChange)
+    }, [mode, getEffectiveMode])
+
     return (
         <Router>
             <Routes>
@@ -70,8 +106,8 @@ function App() {
                 <Route path="/coming-soon" element={<ComingSoon />} />
                 <Route path="/404" element={<Error404 />} />
 
-                {/* Main Layout Pages */}
-                <Route path="/" element={<MainLayout />}>
+                {/* Main Layout Pages - 로그인 필수 */}
+                <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
                     <Route index element={<Dashboard />} />
                     <Route path="analytics" element={<Analytics />} />
 
@@ -121,6 +157,14 @@ function App() {
 
                     {/* Charts */}
                     <Route path="chart/chartjs" element={<ChartJs />} />
+
+                    {/* Real Estate */}
+                    <Route path="real-estate" element={<RealEstate />} />
+                    <Route path="real-estate/temp-properties" element={<TempPropertyList />} />
+                    <Route path="real-estate/apartments" element={<ComplexListPage propertyType="APT" />} />
+                    <Route path="real-estate/officetels" element={<ComplexListPage propertyType="OPST" />} />
+                    <Route path="real-estate/apartment-temp-properties" element={<ApartmentTempPropertyList />} />
+                    <Route path="real-estate/regular-properties" element={<ApartmentRegularPropertyList />} />
                 </Route>
 
                 {/* 404 Fallback */}

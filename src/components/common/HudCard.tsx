@@ -7,6 +7,9 @@ interface HudCardProps {
     subtitle?: string
     action?: ReactNode
     noPadding?: boolean
+    clickable?: boolean
+    onClick?: () => void
+    style?: React.CSSProperties
 }
 
 const HudCard = ({
@@ -15,10 +18,17 @@ const HudCard = ({
     title,
     subtitle,
     action,
-    noPadding = false
+    noPadding = false,
+    clickable = false,
+    onClick,
+    style,
 }: HudCardProps) => {
     return (
-        <div className={`hud-card hud-card-bottom rounded-lg ${className}`}>
+        <div
+            className={`hud-card hud-card-bottom rounded-lg ${className} ${clickable ? 'cursor-pointer hover-accent-bg transition-all duration-300' : ''}`}
+            onClick={onClick}
+            style={clickable ? { cursor: 'pointer', ...style } : style}
+        >
             {(title || action) && (
                 <div className="flex items-center justify-between px-5 py-4 border-b border-hud-border-secondary">
                     <div>

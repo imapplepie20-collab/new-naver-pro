@@ -32,7 +32,7 @@ const TableElements = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-hud-border-secondary bg-hud-bg-primary">
+                            <tr className="border-b border-hud-border-table bg-hud-bg-primary">
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">#</th>
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Name</th>
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Email</th>
@@ -42,15 +42,15 @@ const TableElements = () => {
                         </thead>
                         <tbody>
                             {basicTableData.map((row) => (
-                                <tr key={row.id} className="border-b border-hud-border-secondary last:border-0">
+                                <tr key={row.id} className="border-b border-hud-border-table last:border-0">
                                     <td className="px-5 py-4 text-sm text-hud-text-muted">{row.id}</td>
                                     <td className="px-5 py-4 text-sm text-hud-text-primary">{row.name}</td>
                                     <td className="px-5 py-4 text-sm text-hud-text-secondary">{row.email}</td>
                                     <td className="px-5 py-4 text-sm text-hud-text-secondary">{row.role}</td>
                                     <td className="px-5 py-4">
                                         <span className={`inline-flex px-2.5 py-1 rounded text-xs font-medium ${row.status === 'Active' ? 'bg-hud-accent-success/10 text-hud-accent-success' :
-                                                row.status === 'Pending' ? 'bg-hud-accent-warning/10 text-hud-accent-warning' :
-                                                    'bg-hud-bg-hover text-hud-text-muted'
+                                            row.status === 'Pending' ? 'bg-hud-accent-warning/10 text-hud-accent-warning' :
+                                                'bg-hud-bg-hover text-hud-text-muted'
                                             }`}>
                                             {row.status}
                                         </span>
@@ -67,7 +67,7 @@ const TableElements = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-hud-border-secondary">
+                            <tr className="border-b border-hud-border-table">
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Product</th>
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Category</th>
                                 <th className="text-right px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Price</th>
@@ -76,7 +76,7 @@ const TableElements = () => {
                         </thead>
                         <tbody>
                             {stripedTableData.map((row, i) => (
-                                <tr key={i} className={`border-b border-hud-border-secondary last:border-0 ${i % 2 === 0 ? 'bg-hud-bg-primary/50' : ''}`}>
+                                <tr key={i} className={`border-b border-hud-border-table last:border-0 ${i % 2 === 0 ? 'bg-hud-bg-primary/50' : ''}`}>
                                     <td className="px-5 py-4 text-sm text-hud-text-primary">{row.product}</td>
                                     <td className="px-5 py-4 text-sm text-hud-text-secondary">{row.category}</td>
                                     <td className="px-5 py-4 text-sm text-hud-accent-primary font-mono text-right">{row.price}</td>
@@ -93,7 +93,7 @@ const TableElements = () => {
                 <div className="overflow-x-auto">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-hud-border-secondary">
+                            <tr className="border-b border-hud-border-table">
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">
                                     <input type="checkbox" className="w-4 h-4 rounded" />
                                 </th>
@@ -110,7 +110,7 @@ const TableElements = () => {
                         </thead>
                         <tbody>
                             {basicTableData.map((row) => (
-                                <tr key={row.id} className="border-b border-hud-border-secondary last:border-0 hover:bg-hud-bg-hover transition-hud">
+                                <tr key={row.id} className="border-b border-hud-border-table last:border-0 hover:bg-hud-bg-hover transition-hud">
                                     <td className="px-5 py-4">
                                         <input type="checkbox" className="w-4 h-4 rounded" />
                                     </td>
@@ -125,16 +125,16 @@ const TableElements = () => {
                                     <td className="px-5 py-4 text-sm text-hud-text-secondary">{row.email}</td>
                                     <td className="px-5 py-4">
                                         <span className={`inline-flex px-2.5 py-1 rounded text-xs font-medium ${row.role === 'Admin' ? 'bg-hud-accent-primary/10 text-hud-accent-primary' :
-                                                row.role === 'Editor' ? 'bg-hud-accent-info/10 text-hud-accent-info' :
-                                                    'bg-hud-bg-hover text-hud-text-muted'
+                                            row.role === 'Editor' ? 'bg-hud-accent-info/10 text-hud-accent-info' :
+                                                'bg-hud-bg-hover text-hud-text-muted'
                                             }`}>
                                             {row.role}
                                         </span>
                                     </td>
                                     <td className="px-5 py-4">
                                         <span className={`inline-flex px-2.5 py-1 rounded text-xs font-medium ${row.status === 'Active' ? 'bg-hud-accent-success/10 text-hud-accent-success' :
-                                                row.status === 'Pending' ? 'bg-hud-accent-warning/10 text-hud-accent-warning' :
-                                                    'bg-hud-bg-hover text-hud-text-muted'
+                                            row.status === 'Pending' ? 'bg-hud-accent-warning/10 text-hud-accent-warning' :
+                                                'bg-hud-bg-hover text-hud-text-muted'
                                             }`}>
                                             {row.status}
                                         </span>
@@ -165,19 +165,19 @@ const TableElements = () => {
                     <table className="w-full border-collapse">
                         <thead>
                             <tr>
-                                <th className="border border-hud-border-secondary bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 1</th>
-                                <th className="border border-hud-border-secondary bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 2</th>
-                                <th className="border border-hud-border-secondary bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 3</th>
-                                <th className="border border-hud-border-secondary bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 4</th>
+                                <th className="border border-hud-border-table bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 1</th>
+                                <th className="border border-hud-border-table bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 2</th>
+                                <th className="border border-hud-border-table bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 3</th>
+                                <th className="border border-hud-border-table bg-hud-bg-primary px-4 py-3 text-left text-xs font-medium text-hud-text-muted uppercase">Header 4</th>
                             </tr>
                         </thead>
                         <tbody>
                             {[1, 2, 3, 4].map((row) => (
                                 <tr key={row}>
-                                    <td className="border border-hud-border-secondary px-4 py-3 text-sm text-hud-text-primary">Row {row}, Cell 1</td>
-                                    <td className="border border-hud-border-secondary px-4 py-3 text-sm text-hud-text-secondary">Row {row}, Cell 2</td>
-                                    <td className="border border-hud-border-secondary px-4 py-3 text-sm text-hud-text-secondary">Row {row}, Cell 3</td>
-                                    <td className="border border-hud-border-secondary px-4 py-3 text-sm text-hud-text-secondary">Row {row}, Cell 4</td>
+                                    <td className="border border-hud-border-table px-4 py-3 text-sm text-hud-text-primary">Row {row}, Cell 1</td>
+                                    <td className="border border-hud-border-table px-4 py-3 text-sm text-hud-text-secondary">Row {row}, Cell 2</td>
+                                    <td className="border border-hud-border-table px-4 py-3 text-sm text-hud-text-secondary">Row {row}, Cell 3</td>
+                                    <td className="border border-hud-border-table px-4 py-3 text-sm text-hud-text-secondary">Row {row}, Cell 4</td>
                                 </tr>
                             ))}
                         </tbody>
@@ -190,7 +190,7 @@ const TableElements = () => {
                 <div className="hidden md:block overflow-x-auto -mx-5 -mb-5">
                     <table className="w-full">
                         <thead>
-                            <tr className="border-b border-hud-border-secondary">
+                            <tr className="border-b border-hud-border-table">
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Product</th>
                                 <th className="text-left px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Category</th>
                                 <th className="text-right px-5 py-3 text-xs font-medium text-hud-text-muted uppercase">Price</th>
@@ -199,7 +199,7 @@ const TableElements = () => {
                         </thead>
                         <tbody>
                             {stripedTableData.slice(0, 3).map((row, i) => (
-                                <tr key={i} className="border-b border-hud-border-secondary last:border-0">
+                                <tr key={i} className="border-b border-hud-border-table last:border-0">
                                     <td className="px-5 py-4 text-sm text-hud-text-primary">{row.product}</td>
                                     <td className="px-5 py-4 text-sm text-hud-text-secondary">{row.category}</td>
                                     <td className="px-5 py-4 text-sm text-hud-accent-primary font-mono text-right">{row.price}</td>

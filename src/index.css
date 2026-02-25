@@ -2,6 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS Variables for Theme */
+:root {
+  /* Default accent color (cyan) - will be overridden by ThemeProvider */
+  --hud-accent-primary: #00FFCC;
+  --hud-accent-info: #00D4FF;
+  --hud-accent-warning: #FFA500;
+  --hud-accent-danger: #FF4444;
+  --hud-accent-success: #00CC66;
+
+  /* Background colors - Dark mode default */
+  --hud-bg-primary: #0a0e1a;
+  --hud-bg-secondary: #111827;
+  --hud-bg-card: rgba(17, 24, 39, 0.95);
+  --hud-bg-hover: rgba(31, 41, 55, 0.95);
+
+  /* Text colors - Dark mode default */
+  --hud-text-primary: #f3f4f6;
+  --hud-text-secondary: #d1d5db;
+  --hud-text-muted: #9ca3af;
+
+  /* Shadows */
+  --hud-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
+}
+
+/* SMART MODE */
+.smart {
+  --hud-bg-primary: #f1f5f9;
+  /* Slate 100 - slightly darker background */
+  --hud-bg-secondary: #e2e8f0;
+  --hud-bg-card: #ffffff;
+  /* Pure white cards */
+  --hud-bg-hover: #e2e8f0;
+  --hud-text-primary: #111827;
+  --hud-text-secondary: #4b5563;
+  --hud-text-muted: #9ca3af;
+  --hud-border-primary: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.6);
+  --hud-border-secondary: #cbd5e1;
+  /* Slate 300 - darker border for unselected items */
+  --hud-border-table: #94a3b8;
+  /* Slate 400 - much darker border specifically for table visibility */
+  --hud-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.08);
+}
+
+/* LIGHT MODE */
+.light {
+  --hud-bg-primary: #1a1f2e;
+  --hud-bg-secondary: #252b3d;
+  --hud-bg-card: rgba(37, 43, 58, 0.95);
+  --hud-bg-hover: rgba(45, 51, 67, 0.95);
+  --hud-text-primary: #f3f4f6;
+  --hud-text-secondary: #d1d5db;
+  --hud-text-muted: #9ca3af;
+  --hud-border-primary: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.6);
+  --hud-border-secondary: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.4);
+  --hud-border-table: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.4);
+  --hud-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+}
+
+:root {
+
+  /* Border colors */
+  --hud-border-primary: rgba(0, 255, 204, 0.3);
+  --hud-border-secondary: rgba(255, 255, 255, 0.1);
+  --hud-border-table: rgba(255, 255, 255, 0.1);
+
+  /* Font size */
+  --hud-base-font-size: 16px;
+
+  /* Border radius */
+  --hud-base-border-radius: 8px;
+}
+
 /* Global Styles */
 * {
   margin: 0;
@@ -11,25 +83,28 @@
 
 body {
   font-family: 'Inter', 'Roboto', system-ui, sans-serif;
-  background-color: #0E1726;
-  color: #FFFFFF;
+  background-color: var(--hud-bg-primary);
+  color: var(--hud-text-primary);
   min-height: 100vh;
+  font-size: var(--hud-base-font-size);
 }
 
-/* HUD Grid Background */
+/* HUD Grid Background - using CSS variable */
 .hud-grid-bg {
-  background-image: 
-    linear-gradient(rgba(0, 255, 204, 0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 255, 204, 0.03) 1px, transparent 1px);
+  background-image:
+    linear-gradient(rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.03) 1px, transparent 1px);
   background-size: 50px 50px;
 }
 
 /* HUD Card Corner Brackets */
 .hud-card {
   position: relative;
-  background: rgba(20, 27, 45, 0.8);
+  background: var(--hud-bg-card);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--hud-border-secondary);
+  border-radius: var(--hud-base-border-radius);
+  box-shadow: var(--hud-shadow);
 }
 
 .hud-card::before,
@@ -38,7 +113,7 @@ body {
   position: absolute;
   width: 20px;
   height: 20px;
-  border-color: rgba(0, 255, 204, 0.5);
+  border-color: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.7);
   border-style: solid;
 }
 
@@ -60,7 +135,7 @@ body {
   position: absolute;
   width: 20px;
   height: 20px;
-  border-color: rgba(0, 255, 204, 0.5);
+  border-color: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.7);
   border-style: solid;
 }
 
@@ -83,46 +158,47 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: rgba(20, 27, 45, 0.5);
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(0, 255, 204, 0.3);
+  background: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.3);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(0, 255, 204, 0.5);
+  background: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.5);
 }
 
 /* Glow Effects */
-.glow-primary {
-  box-shadow: 0 0 20px rgba(0, 255, 204, 0.3);
-}
-
-.glow-pink {
-  box-shadow: 0 0 20px rgba(255, 20, 147, 0.3);
-}
-
-.glow-orange {
-  box-shadow: 0 0 20px rgba(255, 165, 0, 0.3);
+.glow-accent {
+  box-shadow: 0 0 20px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.3);
 }
 
 /* Button Hover Glow */
 .btn-glow:hover {
-  box-shadow: 0 0 25px rgba(0, 255, 204, 0.4);
+  box-shadow: 0 0 25px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.4);
   transform: translateY(-1px);
+}
+
+/* Card Hover Accent Background */
+.hover-accent-bg {
+  transition: background-color 0.2s ease-in-out;
+}
+
+.hover-accent-bg:hover {
+  background-color: rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.08) !important;
 }
 
 /* Text Glow */
 .text-glow {
-  text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+  text-shadow: 0 0 10px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.5);
 }
 
 /* Menu Item Active State */
 .menu-active {
-  background: linear-gradient(90deg, rgba(0, 255, 204, 0.1) 0%, transparent 100%);
-  border-left: 3px solid #00FFCC;
+  background: linear-gradient(90deg, rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.1) 0%, transparent 100%);
+  border-left: 3px solid var(--hud-accent-primary);
 }
 
 /* Transitions */
@@ -132,5 +208,5 @@ body {
 
 /* Chart Glow Effect */
 .chart-glow {
-  filter: drop-shadow(0 0 8px rgba(0, 255, 204, 0.3));
+  filter: drop-shadow(0 0 8px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.3));
 }

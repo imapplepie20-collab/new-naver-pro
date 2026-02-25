@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import {
     LayoutDashboard,
     BarChart3,
@@ -21,7 +21,10 @@ import {
     ShoppingBag,
     DollarSign,
     Image,
+    Building2,
+    LogOut,
 } from 'lucide-react'
+import { useAuthStore } from '../../stores/authStore'
 
 interface SidebarProps {
     collapsed: boolean
@@ -108,13 +111,23 @@ const menuItems: MenuItem[] = [
     { title: 'Products', icon: <ShoppingBag size={20} />, path: '/products' },
     { title: 'Pricing', icon: <DollarSign size={20} />, path: '/pricing' },
     { title: 'Gallery', icon: <Image size={20} />, path: '/gallery' },
+    {
+        title: 'Real Estate',
+        icon: <Building2 size={20} />,
+        children: [
+            { title: '매물 검색', path: '/real-estate' },
+            { title: '매물 목록', path: '/real-estate/regular-properties' },
+        ],
+    },
     { title: 'Profile', icon: <User size={20} />, path: '/profile' },
     { title: 'Calendar', icon: <Calendar size={20} />, path: '/calendar' },
     { title: 'Settings', icon: <Settings size={20} />, path: '/settings' },
 ]
 
-const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
+const Sidebar = ({ collapsed }: SidebarProps) => {
     const location = useLocation()
+    const navigate = useNavigate()
+    const { user, logout } = useAuthStore()
     const [expandedMenus, setExpandedMenus] = useState<string[]>([])
 
     const toggleMenu = (title: string) => {
@@ -139,6 +152,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
         <aside
             className={`fixed top-0 left-0 h-full bg-hud-bg-secondary border-r border-hud-border-secondary z-50 transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'
                 }`}
+            style={{ boxShadow: 'var(--hud-shadow)' }}
         >
             {/* Logo */}
             <div className="h-16 flex items-center justify-center border-b border-hud-border-secondary">
@@ -147,7 +161,7 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                         H
                     </div>
                     {!collapsed && (
-                        <span className="font-semibold text-lg text-glow">ALPHA TEAM</span>
+                        <span className="font-semibold text-lg text-glow">집 돌이</span>
                     )}
                 </Link>
             </div>
@@ -216,6 +230,35 @@ const Sidebar = ({ collapsed, onToggle }: SidebarProps) => {
                     ))}
                 </ul>
             </nav>
+
+            {/* User Section */}
+            <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-hud-border-secondary">
+                <div className="flex items-center gap-3 px-3 py-2">
+                    <div className="w-8 h-8 bg-gradient-to-br from-hud-accent-primary to-hud-accent-info rounded-lg flex items-center justify-center text-hud-bg-primary font-semibold text-sm">
+                        {user?.name?.[0] || 'U'}
+                    </div>
+                    {!collapsed && (
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-hud-text-primary truncate">
+                                {user?.name || '사용자'}
+                            </p>
+                            <p className="text-xs text-hud-text-muted truncate">
+                                {user?.email || ''}
+                            </p>
+                        </div>
+                    )}
+                    <button
+                        onClick={() => {
+                            logout()
+                            navigate('/login')
+                        }}
+                        className="p-1.5 text-hud-text-muted hover:text-hud-accent-danger hover:bg-hud-bg-hover rounded-lg transition-hud"
+                        title="로그아웃"
+                    >
+                        <LogOut size={16} />
+                    </button>
+                </div>
+            </div>
         </aside>
     )
 }

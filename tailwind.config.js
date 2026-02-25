@@ -4,34 +4,35 @@ export default {
         "./index.html",
         "./src/**/*.{js,ts,jsx,tsx}",
     ],
-    darkMode: 'class',
+    darkMode: ['class', '.dark'],
     theme: {
         extend: {
             colors: {
                 // HUD Theme Colors
                 hud: {
                     bg: {
-                        primary: '#0E1726',
-                        secondary: '#141B2D',
-                        card: 'rgba(20, 27, 45, 0.8)',
-                        hover: 'rgba(30, 40, 60, 0.9)',
+                        primary: 'var(--hud-bg-primary)',
+                        secondary: 'var(--hud-bg-secondary)',
+                        card: 'var(--hud-bg-card)',
+                        hover: 'var(--hud-bg-hover)',
                     },
                     accent: {
-                        primary: '#00FFCC',
-                        secondary: '#FF1493',
-                        warning: '#FFA500',
-                        info: '#6366F1',
-                        success: '#10B981',
-                        danger: '#EF4444',
+                        primary: 'rgb(var(--hud-accent-primary-rgb) / <alpha-value>)',
+                        info: 'rgb(var(--hud-accent-info-rgb) / <alpha-value>)',
+                        warning: 'rgb(var(--hud-accent-warning-rgb) / <alpha-value>)',
+                        danger: 'rgb(var(--hud-accent-danger-rgb) / <alpha-value>)',
+                        success: 'rgb(var(--hud-accent-success-rgb) / <alpha-value>)',
+                        secondary: '#FF1493', // Kept for backward compatibility
                     },
                     text: {
-                        primary: '#FFFFFF',
-                        secondary: '#A0AEC0',
-                        muted: '#64748B',
+                        primary: 'var(--hud-text-primary, #FFFFFF)',
+                        secondary: 'var(--hud-text-secondary, #A0AEC0)',
+                        muted: 'var(--hud-text-muted, #64748B)',
                     },
                     border: {
-                        primary: 'rgba(0, 255, 204, 0.3)',
-                        secondary: 'rgba(255, 255, 255, 0.1)',
+                        primary: 'var(--hud-border-primary, rgba(0, 255, 204, 0.3))',
+                        secondary: 'var(--hud-border-secondary, rgba(255, 255, 255, 0.1))',
+                        table: 'var(--hud-border-table, rgba(255, 255, 255, 0.1))',
                     }
                 }
             },
@@ -40,8 +41,8 @@ export default {
                 mono: ['JetBrains Mono', 'Fira Code', 'monospace'],
             },
             boxShadow: {
-                'hud': '0 0 20px rgba(0, 255, 204, 0.1)',
-                'hud-glow': '0 0 30px rgba(0, 255, 204, 0.3)',
+                'hud': '0 0 20px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.1)',
+                'hud-glow': '0 0 30px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.3)',
                 'hud-pink': '0 0 20px rgba(255, 20, 147, 0.3)',
             },
             animation: {
@@ -51,8 +52,8 @@ export default {
             },
             keyframes: {
                 'pulse-glow': {
-                    '0%, 100%': { boxShadow: '0 0 20px rgba(0, 255, 204, 0.2)' },
-                    '50%': { boxShadow: '0 0 40px rgba(0, 255, 204, 0.4)' },
+                    '0%, 100%': { boxShadow: '0 0 20px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.2)' },
+                    '50%': { boxShadow: '0 0 40px rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.4)' },
                 },
                 fadeIn: {
                     '0%': { opacity: '0' },
@@ -65,8 +66,8 @@ export default {
             },
             backgroundImage: {
                 'hud-grid': `
-          linear-gradient(rgba(0, 255, 204, 0.03) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(0, 255, 204, 0.03) 1px, transparent 1px)
+          linear-gradient(rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(var(--hud-accent-primary-rgb, 0, 255, 204), 0.03) 1px, transparent 1px)
         `,
             },
             backgroundSize: {

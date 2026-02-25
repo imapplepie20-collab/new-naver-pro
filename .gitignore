@@ -36,3 +36,5 @@ ssl/
 
 # Model files
 *.pkl
+
+/generated/prisma

@@ -7,7 +7,7 @@ interface StatCardProps {
     change?: number
     changeLabel?: string
     icon?: ReactNode
-    variant?: 'default' | 'primary' | 'secondary' | 'warning' | 'danger'
+    variant?: 'default' | 'primary' | 'secondary' | 'warning' | 'danger' | 'info'
 }
 
 const StatCard = ({
@@ -26,6 +26,7 @@ const StatCard = ({
         secondary: 'from-hud-accent-info/20 to-transparent border-hud-accent-info/30',
         warning: 'from-hud-accent-warning/20 to-transparent border-hud-accent-warning/30',
         danger: 'from-hud-accent-danger/20 to-transparent border-hud-accent-danger/30',
+        info: 'from-hud-accent-info/20 to-transparent border-hud-accent-info/30',
     }
 
     const iconColors = {
@@ -34,6 +35,7 @@ const StatCard = ({
         secondary: 'text-hud-accent-info',
         warning: 'text-hud-accent-warning',
         danger: 'text-hud-accent-danger',
+        info: 'text-hud-accent-info',
     }
 
     return (

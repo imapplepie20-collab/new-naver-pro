@@ -1,0 +1,400 @@
+// 네이버 부동산 분석 프로젝트 Prisma Schema (Prisma 7)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// 1. 사용자 관리 (개인 데이터)
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String?   @unique
+  name          String?
+  password      String?   // 해시된 비밀번호 (local 로그인용)
+  role          String    @default("user") // user, admin
+  provider      String    @default("local") // local, google, kakao
+  providerId    String?   // OAuth provider ID
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // 테마 설정
+  themeMode     String    @default("dark") // light, dark, system
+  accentColor   String    @default("cyan") // cyan, indigo, pink, orange, green, red
+  fontSize      String    @default("medium") // small, medium, large
+  borderRadius  String    @default("medium") // sharp, medium, rounded
+  compactMode   Boolean   @default(false)
+
+  // 관계 - 사용자 개인 데이터
+  savedProperties  SavedProperty[]
+  searchConditions SearchCondition[]
+  priceAlerts      PriceAlert[]
+  notes            Note[]
+  watchAreas       WatchArea[]
+
+  @@map("users")
+}
+
+// ============================================
+// 2. 저장한 매물 (찜)
+// ============================================
+
+model SavedProperty {
+  id          String   @id @default(cuid())
+  userId      String
+  articleNo   String   // 네이버 매물 번호
+  complexNo   String?  // 단지 번호 (있으면)
+  complexName String?  // 단지명
+
+  // 캐시된 매물 정보 (원본 조회 없이 표시용)
+  cachedName  String?  // 매물명
+  cachedPrice Int?     // 가격 (만원)
+  cachedType  String?  // 매물타입
+  cachedTrade String?  // 거래방식
+
+  // 매물 전체 정보 (정규 매물 그리드 표시용)
+  articleData String?  @db.Text  // JSON으로 Article 전체 저장
+
+  isFavorite  Boolean  @default(false)
+  notes       String?  // 간단 메모
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 관계
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleNo])
+  @@index([userId])
+  @@index([articleNo])
+  @@map("saved_properties")
+}
+
+// ============================================
+// 3. 검색 조건 저장
+// ============================================
+
+model SearchCondition {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String   // 사용자 정의 이름
+
+  // 검색 조건
+  cortarNo    String?  // 지역 코드
+  regionName  String?  // 지역명 (캐시)
+  realEstateTypes String? // 콜론 구분 (APT:OPST:VL)
+  tradeTypes  String?  // 콜론 구분 (A1:B1:B2)
+  priceMin    Int?
+  priceMax    Int?
+  areaMin     Float?
+  areaMax     Float?
+
+  // 정렬 기본값
+  defaultOrder String? // rank, price, area
+
+  isDefault   Boolean  @default(false) // 기본 검색 여부
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 관계
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isDefault])
+  @@map("search_conditions")
+}
+
+// ============================================
+// 4. 가격 알림
+// ============================================
+
+model PriceAlert {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String   // 알림 이름
+
+  // 대상
+  articleNo   String?  // 특정 매물
+  complexNo   String?  // 특정 단지
+  cortarNo    String?  // 특정 지역
+
+  // 조건
+  alertType   String   // below: 가격 떨어지면, above: 가격 오르면, change: 변동률
+  targetPrice Int?     // 목표 가격 (만원)
+  changeRate  Float?   // 변동률 (%)
+
+  // 상태
+  isActive    Boolean  @default(true)
+  isTriggered Boolean  @default(false) // 발동 여부
+  triggeredAt DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 관계
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isActive])
+  @@map("price_alerts")
+}
+
+// ============================================
+// 5. 매물 메모
+// ============================================
+
+model Note {
+  id          String   @id @default(cuid())
+  userId      String
+  articleNo   String   // 매물 번호
+
+  content     String   @db.Text
+  tags        String?  // JSON 배열 ["관리비저렴", "역세권"]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 관계
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([articleNo])
+  @@map("notes")
+}
+
+// ============================================
+// 6. 토큰 관리 (공용)
+// ============================================
+
+model NaverToken {
+  id          Int      @id @default(autoincrement())
+  accessToken String   @unique
+  expiresAt   DateTime
+  cookies     String?  // 쿠키 문자열
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("naver_tokens")
+}
+
+// ============================================
+// 7. 지역 관리 (공용)
+// ============================================
+
+model Region {
+  id            Int      @id @default(autoincrement())
+  cortarNo      String   @unique
+  cortarName    String
+  cortarType    String   // city, dvsn, dongs (시/군/구, 읍/면/동)
+  parentCortarNo String? // 상위 지역 코드
+  centerLat     Float?
+  centerLon     Float?
+  depth         Int      @default(0) // 계층 깊이 (0: 시도, 1: 시군구, 2: 읍면동)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // 관계
+  parent        Region?  @relation("RegionHierarchy", fields: [parentCortarNo], references: [cortarNo])
+  children      Region[] @relation("RegionHierarchy")
+  complexes     Complex[]
+
+  @@index([parentCortarNo])
+  @@index([cortarType])
+  @@map("regions")
+}
+
+// ============================================
+// 8. 단지 캐시 (일시적, TTL 기준 삭제 가능)
+// ============================================
+
+model Complex {
+  id                    Int      @id @default(autoincrement())
+  complexNo             String   @unique // 네이버 단지 번호
+  complexName           String
+  realEstateTypeCode    String   // APT, OPST
+  realEstateTypeName    String   // 아파트, 오피스텔
+  latitude              Float
+  longitude             Float
+  cortarNo              String   // 지역 코드
+
+  // 단지 정보
+  completionYearMonth   String?  // 준공년월 (YYYYMM)
+  totalDongCount        Int?     // 동 수
+  totalHouseholdCount   Int?     // 세대수
+  floorAreaRatio        Int?     // 용적률
+  minArea               Float?   // 최소 면적
+  maxArea               Float?   // 최대 면적
+  representativeArea    Float?   // 대표 면적
+
+  // 매물 카운트 (캐시된 값)
+  dealCount             Int      @default(0)
+  leaseCount            Int      @default(0)
+  rentCount             Int      @default(0)
+  totalArticleCount     Int      @default(0)
+
+  // 캐시 관리
+  lastCrawledAt          DateTime?
+  cacheExpiresAt         DateTime?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // 관계
+  region                Region   @relation(fields: [cortarNo], references: [cortarNo])
+  watchAreas            WatchArea[]
+
+  @@index([cortarNo])
+  @@index([realEstateTypeCode])
+  @@index([latitude, longitude])
+  @@index([cacheExpiresAt])
+  @@map("complexes")
+}
+
+// ============================================
+// 9. 매물 캐시 (일시적, TTL 기준 삭제 가능)
+// ============================================
+
+model Property {
+  id                    Int      @id @default(autoincrement())
+  articleNo             String   @unique // 네이버 매물 번호
+
+  // 기본 정보
+  articleName           String
+  articleStatus         String   // R0: 정상, etc.
+  realEstateTypeCode    String   // APT, OPST, VL, ONEROOM, TWOROOM, SG, etc.
+  realEstateTypeName    String   // 아파트, 오피스텔, 빌라, 원룸, etc.
+
+  // 거래 정보
+  tradeTypeCode         String   // A1: 매매, B1: 전세, B2: 월세, B3: 단기임대
+  tradeTypeName         String   // 매매, 전세, 월세, 단기임대
+
+  // 가격 정보 (만원 단위)
+  dealOrWarrantPrc      Int?     // 매매가/보증금
+  rentPrc               Int?     // 월세
+
+  // 면적 정보 (㎡)
+  area1                 Float?   // 공급면적
+  area2                 Float?   // 전용면적
+
+  // 상세 정보
+  floorInfo             String?  // 층수 (예: 3/5, B1/3)
+  direction             String?  // 방향
+  buildingName          String?  // 건물명
+
+  // 위치 정보
+  latitude              Float?
+  longitude             Float?
+  cortarNo              String   // 지역 코드
+  detailAddress         String?  // 상세 주소
+
+  // 기타 정보
+  articleConfirmYmd     String?  // 매물 확정일 (YYYYMMDD)
+  articleFeatureDesc    String?  // 매물 설명
+
+  // 중개사 정보
+  cpName                String?  // 중개업소명
+  realtorName           String?  // 중개사명
+  cpPcArticleUrl        String?  // PC 매물 URL
+  cpMobileArticleUrl    String?  // 모바일 매물 URL
+
+  // 추가 정보
+  tagList               String?  // JSON 배열로 저장 (["역세권", "새아파트"])
+
+  // 단지 정보 (아파트/오피스텔만 해당)
+  complexNo             String?  // 단지 번호
+
+  // 캐시 관리
+  lastCrawledAt          DateTime?
+  cacheExpiresAt         DateTime?
+
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  priceHistories        PriceHistory[]
+
+  @@index([cortarNo])
+  @@index([realEstateTypeCode])
+  @@index([tradeTypeCode])
+  @@index([articleConfirmYmd])
+  @@index([latitude, longitude])
+  @@index([cacheExpiresAt])
+  @@map("properties")
+}
+
+// ============================================
+// 10. 가격 히스토리 (시계열 데이터)
+// ============================================
+
+model PriceHistory {
+  id            Int      @id @default(autoincrement())
+  propertyId    Int
+  tradeTypeCode String   // A1, B1, B2, B3
+  price         Int      // 가격 (만원)
+
+  recordedAt    DateTime @default(now())
+
+  // 관계
+  property      Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+  @@index([recordedAt])
+  @@map("price_histories")
+}
+
+// ============================================
+// 11. 크롤링 로그
+// ============================================
+
+model ScrapLog {
+  id           Int       @id @default(autoincrement())
+  targetUrl    String    // 크롤링 대상 URL
+  targetType   String    // complexes, articles, regions
+  status       String    // success, failed, pending
+  itemCount    Int       @default(0) // 수집된 항목 수
+
+  errorMessage String?   // 에러 메시지
+  startedAt    DateTime  @default(now())
+  completedAt  DateTime?
+
+  @@index([status])
+  @@index([startedAt])
+  @@map("scrap_logs")
+}
+
+// ============================================
+// 12. 관심 지역/단지 설정
+// ============================================
+
+model WatchArea {
+  id             String   @id @default(cuid())
+  userId         String
+  name           String   // 사용자 정의 이름
+
+  cortarNo       String?  // 지역 코드 (지역 기반)
+  complexNo      String?  // 단지 번호 (단지 기반)
+
+  // 크롤링 설정
+  crawlInterval  Int      @default(60) // 크롤링 주기 (분)
+  isActive       Boolean  @default(true)
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // 관계
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  complex        Complex? @relation(fields: [complexNo], references: [complexNo])
+
+  @@index([userId])
+  @@index([cortarNo])
+  @@index([complexNo])
+  @@map("watch_areas")
+}
+

@@ -1,121 +1,118 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Mail, Lock, Eye, EyeOff } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Mail, Lock, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import Button from '../../components/common/Button'
+import { useAuthStore } from '../../stores/authStore'
 
 const Login = () => {
-    const [showPassword, setShowPassword] = useState(false)
-    const [email, setEmail] = useState('')
-    const [password, setPassword] = useState('')
+  const navigate = useNavigate()
+  const { login, isLoading } = useAuthStore()
 
-    return (
-        <div className="min-h-screen bg-hud-bg-primary hud-grid-bg flex items-center justify-center p-6">
-            <div className="w-full max-w-md">
-                {/* Logo */}
-                <div className="text-center mb-8">
-                    <div className="inline-flex items-center gap-3 mb-6">
-                        <div className="w-12 h-12 bg-gradient-to-br from-hud-accent-primary to-hud-accent-info rounded-lg flex items-center justify-center font-bold text-xl text-hud-bg-primary">
-                            H
-                        </div>
-                        <span className="font-bold text-2xl text-hud-text-primary text-glow">ALPHA TEAM</span>
-                    </div>
-                    <h1 className="text-2xl font-bold text-hud-text-primary">Welcome Back</h1>
-                    <p className="text-hud-text-muted mt-2">Sign in to your account to continue</p>
-                </div>
+  const [showPassword, setShowPassword] = useState(false)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
 
-                {/* Login Form */}
-                <div className="hud-card hud-card-bottom rounded-lg p-8">
-                    <form onSubmit={(e) => e.preventDefault()} className="space-y-6">
-                        {/* Email */}
-                        <div>
-                            <label className="block text-sm text-hud-text-secondary mb-2">Email Address</label>
-                            <div className="relative">
-                                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-hud-text-muted" size={18} />
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="Enter your email"
-                                    className="w-full pl-12 pr-4 py-3 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary placeholder-hud-text-muted focus:outline-none focus:border-hud-accent-primary transition-hud"
-                                />
-                            </div>
-                        </div>
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setError('')
 
-                        {/* Password */}
-                        <div>
-                            <label className="block text-sm text-hud-text-secondary mb-2">Password</label>
-                            <div className="relative">
-                                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-hud-text-muted" size={18} />
-                                <input
-                                    type={showPassword ? 'text' : 'password'}
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    placeholder="Enter your password"
-                                    className="w-full pl-12 pr-12 py-3 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary placeholder-hud-text-muted focus:outline-none focus:border-hud-accent-primary transition-hud"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-hud-text-muted hover:text-hud-text-primary transition-hud"
-                                >
-                                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                                </button>
-                            </div>
-                        </div>
+    const result = await login(email, password)
 
-                        {/* Remember & Forgot */}
-                        <div className="flex items-center justify-between">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input
-                                    type="checkbox"
-                                    className="w-4 h-4 rounded border-hud-border-secondary bg-hud-bg-primary text-hud-accent-primary focus:ring-hud-accent-primary"
-                                />
-                                <span className="text-sm text-hud-text-secondary">Remember me</span>
-                            </label>
-                            <a href="#" className="text-sm text-hud-accent-primary hover:underline">
-                                Forgot password?
-                            </a>
-                        </div>
+    if (result.success) {
+      navigate('/')
+    } else {
+      setError(result.error || '로그인에 실패했습니다.')
+    }
+  }
 
-                        {/* Submit */}
-                        <Button variant="primary" fullWidth glow type="submit">
-                            Sign In
-                        </Button>
-                    </form>
-
-                    {/* Divider */}
-                    <div className="relative my-6">
-                        <div className="absolute inset-0 flex items-center">
-                            <div className="w-full border-t border-hud-border-secondary"></div>
-                        </div>
-                        <div className="relative flex justify-center">
-                            <span className="px-4 bg-hud-bg-card text-sm text-hud-text-muted">or continue with</span>
-                        </div>
-                    </div>
-
-                    {/* Social Login */}
-                    <div className="grid grid-cols-3 gap-3">
-                        {['Google', 'GitHub', 'Twitter'].map((provider) => (
-                            <button
-                                key={provider}
-                                className="py-2.5 px-4 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-sm text-hud-text-secondary hover:border-hud-accent-primary hover:text-hud-accent-primary transition-hud"
-                            >
-                                {provider}
-                            </button>
-                        ))}
-                    </div>
-
-                    {/* Register Link */}
-                    <p className="text-center text-sm text-hud-text-muted mt-6">
-                        Don't have an account?{' '}
-                        <Link to="/register" className="text-hud-accent-primary hover:underline">
-                            Sign up
-                        </Link>
-                    </p>
-                </div>
+  return (
+    <div className="min-h-screen bg-hud-bg-primary hud-grid-bg flex items-center justify-center p-6">
+      <div className="w-full max-w-md">
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-3 mb-6">
+            <div className="w-12 h-12 bg-gradient-to-br from-hud-accent-primary to-hud-accent-info rounded-lg flex items-center justify-center font-bold text-xl text-hud-bg-primary">
+              H
             </div>
+            <span className="font-bold text-2xl text-hud-text-primary text-glow">집 돌이</span>
+          </div>
+          <h1 className="text-2xl font-bold text-hud-text-primary">환영합니다</h1>
+          <p className="text-hud-text-muted mt-2">계정에 로그인하세요</p>
         </div>
-    )
+
+        {/* Login Form */}
+        <div className="hud-card hud-card-bottom rounded-lg p-8">
+          {error && (
+            <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 text-red-400 text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Email */}
+            <div>
+              <label className="block text-sm text-hud-text-secondary mb-2">이메일</label>
+              <div className="relative">
+                <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-hud-text-muted" size={18} />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="이메일을 입력하세요"
+                  className="w-full pl-12 pr-4 py-3 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary placeholder-hud-text-muted focus:outline-none focus:border-hud-accent-primary transition-hud"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Password */}
+            <div>
+              <label className="block text-sm text-hud-text-secondary mb-2">비밀번호</label>
+              <div className="relative">
+                <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-hud-text-muted" size={18} />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="비밀번호를 입력하세요"
+                  className="w-full pl-12 pr-12 py-3 bg-hud-bg-primary border border-hud-border-secondary rounded-lg text-hud-text-primary placeholder-hud-text-muted focus:outline-none focus:border-hud-accent-primary transition-hud"
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-hud-text-muted hover:text-hud-text-primary transition-hud"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
+
+            {/* Submit */}
+            <Button
+              variant="primary"
+              fullWidth
+              glow
+              type="submit"
+              disabled={isLoading}
+            >
+              {isLoading ? '로그인 중...' : '로그인'}
+            </Button>
+          </form>
+
+          {/* Register Link */}
+          <p className="text-center text-sm text-hud-text-muted mt-6">
+            계정이 없으신가요?{' '}
+            <a href="/register" className="text-hud-accent-primary hover:underline">
+              회원가입
+            </a>
+          </p>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default Login
