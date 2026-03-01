@@ -1,0 +1,17 @@
+node_modules
+dist
+.git
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+.vscode
+.idea
+docs
+docs.old
+ssl
+*.sql
+!docs/dbSchema.sql
+*.pkl
+.agent
