@@ -23,13 +23,29 @@ COPY . .
 # Build frontend (Vite)
 RUN bun run build
 
-# Stage 2: Production image
-FROM oven/bun:1-slim
+# Stage 2: Production image (full, not slim - Puppeteer needs Chromium)
+FROM oven/bun:1
 
 WORKDIR /app
 
-# Install OpenSSL for Prisma (required for PostgreSQL)
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
+# Install Chromium and dependencies for Puppeteer
+RUN apt-get update && apt-get install -y \
+  chromium \
+  fonts-ipafont-gothic \
+  fonts-wqy-zenhei \
+  fonts-thai-tlwg \
+  fonts-khmeros \
+  fonts-freefont-ttf \
+  libxss1 \
+  openssl \
+  ca-certificates \
+  curl \
+  --no-install-recommends \
+  && rm -rf /var/lib/apt/lists/*
+
+# Set Puppeteer to use system Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
 # Copy built artifacts from builder
 COPY --from=builder /app/node_modules ./node_modules
