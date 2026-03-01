@@ -24,7 +24,7 @@ import Button from '../../components/common/Button';
 import RegionSelectorModal from '../../components/real-estate/RegionSelectorModal';
 import type { ComplexMarker, RealEstateTypeCode, TradeTypeCode } from '../../types/naver-land';
 
-const API_BASE = import.meta.env.VITE_API_BASE || window.location.protocol + '//' + window.location.hostname + ':3001';
+import { API_BASE } from '../../lib/api';
 
 // 매물타입별 옵션
 const PROPERTY_TYPE_OPTIONS = [
@@ -238,11 +238,10 @@ const ComplexListPage: React.FC<ComplexListPageProps> = ({ propertyType = 'APT' 
                   <button
                     key={option.value}
                     onClick={() => setSelectedPropertyType(option.value)}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      selectedPropertyType === option.value
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${selectedPropertyType === option.value
                         ? 'bg-hud-accent-primary text-white'
                         : 'bg-hud-bg-secondary text-hud-text-secondary hover:bg-hud-bg-hover'
-                    }`}
+                      }`}
                   >
                     {option.label}
                   </button>
@@ -258,11 +257,10 @@ const ComplexListPage: React.FC<ComplexListPageProps> = ({ propertyType = 'APT' 
                   <button
                     key={option.value}
                     onClick={() => setSelectedTradeType(option.value)}
-                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${
-                      selectedTradeType === option.value
+                    className={`px-3 py-1.5 text-sm rounded-md transition-colors ${selectedTradeType === option.value
                         ? 'bg-hud-accent-primary text-white'
                         : 'bg-hud-bg-secondary text-hud-text-secondary hover:bg-hud-bg-hover'
-                    }`}
+                      }`}
                   >
                     {option.label}
                   </button>
@@ -371,11 +369,10 @@ const ComplexListPage: React.FC<ComplexListPageProps> = ({ propertyType = 'APT' 
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`w-8 h-8 text-sm rounded-md transition-colors ${
-                            currentPage === pageNum
+                          className={`w-8 h-8 text-sm rounded-md transition-colors ${currentPage === pageNum
                               ? 'bg-hud-accent-primary text-white'
                               : 'bg-hud-bg-secondary text-hud-text-secondary hover:bg-hud-bg-hover'
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>

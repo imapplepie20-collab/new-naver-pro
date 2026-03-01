@@ -19,7 +19,7 @@ interface PriceTrendChartProps {
     period?: '3month' | '6month' | '1year' | 'all';
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || window.location.protocol + '//' + window.location.hostname + ':3001';
+import { API_BASE } from '../../lib/api';
 
 const PriceTrendChart: React.FC<PriceTrendChartProps> = ({
     cortarNo,
@@ -141,11 +141,10 @@ const PriceTrendChart: React.FC<PriceTrendChartProps> = ({
                         <button
                             key={p.value}
                             onClick={() => setSelectedPeriod(p.value as any)}
-                            className={`px-3 py-1 text-xs rounded-lg transition-colors ${
-                                selectedPeriod === p.value
+                            className={`px-3 py-1 text-xs rounded-lg transition-colors ${selectedPeriod === p.value
                                     ? 'bg-hud-accent-primary text-hud-bg-primary'
                                     : 'bg-hud-bg-primary text-hud-text-secondary hover:bg-hud-bg-hover'
-                            }`}
+                                }`}
                         >
                             {p.label}
                         </button>
@@ -204,10 +203,10 @@ const PriceTrendChart: React.FC<PriceTrendChartProps> = ({
                             d={`
                                 M 0,${100 - ((priceData[0].price - minPrice) / (maxPrice - minPrice)) * 100}
                                 ${priceData.slice(1).map((d, i) => {
-                                    const x = ((i + 1) / (priceData.length - 1)) * 100;
-                                    const y = 100 - ((d.price - minPrice) / (maxPrice - minPrice)) * 100;
-                                    return ` L ${x},${y}`;
-                                }).join('')}
+                                const x = ((i + 1) / (priceData.length - 1)) * 100;
+                                const y = 100 - ((d.price - minPrice) / (maxPrice - minPrice)) * 100;
+                                return ` L ${x},${y}`;
+                            }).join('')}
                                 L 100,100 L 0,100 Z
                             `}
                             fill="url(#lineGradient)"
@@ -220,10 +219,10 @@ const PriceTrendChart: React.FC<PriceTrendChartProps> = ({
                             d={`
                                 M 0,${100 - ((priceData[0].price - minPrice) / (maxPrice - minPrice)) * 100}
                                 ${priceData.slice(1).map((d, i) => {
-                                    const x = ((i + 1) / (priceData.length - 1)) * 100;
-                                    const y = 100 - ((d.price - minPrice) / (maxPrice - minPrice)) * 100;
-                                    return ` L ${x},${y}`;
-                                }).join('')}
+                                const x = ((i + 1) / (priceData.length - 1)) * 100;
+                                const y = 100 - ((d.price - minPrice) / (maxPrice - minPrice)) * 100;
+                                return ` L ${x},${y}`;
+                            }).join('')}
                             `}
                             fill="none"
                             stroke="#00FFCC"

@@ -1,0 +1,1 @@
+lsof -ti:5173,3001 | xargs kill -9 2>/dev/null; echo "포트 정리 완료"

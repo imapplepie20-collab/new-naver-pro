@@ -73,7 +73,12 @@ import ComingSoon from './pages/ComingSoon'
 import PrivateRoute from './components/auth/PrivateRoute'
 
 function App() {
-    const { mode, getEffectiveMode } = useThemeStore()
+    const { mode, getEffectiveMode, loadFromServer } = useThemeStore()
+
+    // 앱 시작 시 서버에서 글로벌 테마 로드
+    useEffect(() => {
+        loadFromServer()
+    }, [])
 
     // Handle system theme changes
     useEffect(() => {

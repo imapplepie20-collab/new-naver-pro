@@ -15,10 +15,10 @@ export const hexToRgb = (hex: string): string => {
     : '0, 0, 0';
 };
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+import { API_BASE } from '../lib/api';
 
 export type ThemeMode = 'light' | 'dark' | 'system' | 'smart'
-export type AccentColor = 'cyan' | 'indigo' | 'pink' | 'orange' | 'green' | 'red'
+export type AccentColor = 'cyan' | 'indigo' | 'pink' | 'orange' | 'green' | 'red' | 'teal' | 'purple' | 'amber' | 'slate'
 export type FontSize = 'small' | 'medium' | 'large'
 export type BorderRadius = 'sharp' | 'medium' | 'rounded'
 
@@ -80,6 +80,38 @@ export const ACCENT_COLORS: Record<AccentColor, AccentColorConfig> = {
     danger: '#DC2626',
     success: '#22C55E',
   },
+  teal: {
+    name: '틸',
+    primary: '#14B8A6',
+    info: '#2DD4BF',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    success: '#059669',
+  },
+  purple: {
+    name: '퍼플',
+    primary: '#A855F7',
+    info: '#C084FC',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    success: '#22C55E',
+  },
+  amber: {
+    name: '앰버',
+    primary: '#F59E0B',
+    info: '#FBBF24',
+    warning: '#FB923C',
+    danger: '#EF4444',
+    success: '#10B981',
+  },
+  slate: {
+    name: '슬레이트',
+    primary: '#64748B',
+    info: '#94A3B8',
+    warning: '#F59E0B',
+    danger: '#EF4444',
+    success: '#22C55E',
+  },
 }
 
 interface ThemeState {
@@ -104,7 +136,10 @@ interface ThemeState {
   // Load from user data (from login/API)
   loadFromUser: (user: { themeMode?: string | null; accentColor?: string | null; fontSize?: string | null; borderRadius?: string | null; compactMode?: boolean | null }) => void
 
-  // Save to server
+  // Load from server (global theme)
+  loadFromServer: () => Promise<void>
+
+  // Save to server (global theme)
   saveToServer: () => Promise<{ success: boolean; error?: string }>
 
   // Computed
@@ -113,7 +148,7 @@ interface ThemeState {
 }
 
 const DEFAULT_THEME = {
-  mode: 'dark' as ThemeMode,
+  mode: 'smart' as ThemeMode,
   accentColor: 'cyan' as AccentColor,
   fontSize: 'medium' as FontSize,
   borderRadius: 'medium' as BorderRadius,
@@ -187,22 +222,13 @@ export const useThemeStore = create<ThemeState>()(
       saveToServer: async () => {
         const { mode, accentColor, fontSize, borderRadius, compactMode } = get()
 
-        // Get token from localStorage
-        const authStorage = localStorage.getItem('auth-storage')
-        if (!authStorage) return { success: false }
-
         try {
-          const parsed = JSON.parse(authStorage)
-          const token = parsed?.state?.token
-          if (!token) return { success: false }
-
           set({ isSaving: true })
 
-          const response = await fetch(`${API_BASE}/api/user/theme`, {
+          const response = await fetch(`${API_BASE}/api/global-theme`, {
             method: 'PUT',
             headers: {
               'Content-Type': 'application/json',
-              'Authorization': `Bearer ${token}`,
             },
             body: JSON.stringify({
               themeMode: mode,
@@ -223,6 +249,48 @@ export const useThemeStore = create<ThemeState>()(
           return { success: false, error: error instanceof Error ? error.message : 'Unknown error' }
         } finally {
           set({ isSaving: false })
+        }
+      },
+
+      loadFromServer: async () => {
+        try {
+          const response = await fetch(`${API_BASE}/api/global-theme`)
+          if (!response.ok) return
+
+          const theme = await response.json()
+          const themeData = {
+            mode: (theme.mode || DEFAULT_THEME.mode) as ThemeMode,
+            accentColor: (theme.accentColor || DEFAULT_THEME.accentColor) as AccentColor,
+            fontSize: (theme.fontSize || DEFAULT_THEME.fontSize) as FontSize,
+            borderRadius: (theme.borderRadius || DEFAULT_THEME.borderRadius) as BorderRadius,
+            compactMode: theme.compactMode ?? DEFAULT_THEME.compactMode,
+          }
+          set(themeData)
+          // Update CSS variables
+          const config = ACCENT_COLORS[themeData.accentColor]
+          if (config) {
+            const root = document.documentElement
+            root.style.setProperty('--hud-accent-primary-rgb', hexToRgb(config.primary))
+            root.style.setProperty('--hud-accent-info-rgb', hexToRgb(config.info))
+            root.style.setProperty('--hud-accent-warning-rgb', hexToRgb(config.warning))
+            root.style.setProperty('--hud-accent-danger-rgb', hexToRgb(config.danger))
+            root.style.setProperty('--hud-accent-success-rgb', hexToRgb(config.success))
+            root.style.setProperty('--hud-accent-primary', config.primary)
+            root.style.setProperty('--hud-accent-info', config.info)
+            root.style.setProperty('--hud-accent-warning', config.warning)
+            root.style.setProperty('--hud-accent-danger', config.danger)
+            root.style.setProperty('--hud-accent-success', config.success)
+          }
+          // Apply theme class
+          const root = document.documentElement
+          root.classList.remove('light', 'dark', 'smart')
+          if (themeData.mode === 'system') {
+            root.classList.add(window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+          } else {
+            root.classList.add(themeData.mode)
+          }
+        } catch (error) {
+          console.error('Failed to load global theme:', error)
         }
       },
 

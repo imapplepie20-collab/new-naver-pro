@@ -177,60 +177,238 @@ const Settings = () => {
 
                     {activeSection === 'appearance' && (
                         <div className="space-y-6">
+                            {/* ===== 테마 모드 - Premium Redesign ===== */}
                             <HudCard title="테마 모드" subtitle="선호하는 테마를 선택하세요">
-                                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                                    {themeModes.map((theme) => (
-                                        <button
-                                            key={theme.value}
-                                            onClick={() => setMode(theme.value)}
-                                            className={`relative p-4 rounded-xl border-2 transition-all ${mode === theme.value
-                                                ? 'border-hud-accent-primary bg-hud-accent-primary/10'
-                                                : 'border-hud-border-secondary bg-hud-bg-primary hover:border-hud-border-primary'
-                                                }`}
-                                        >
-                                            <div className="flex flex-col items-center gap-2">
-                                                <div className={`p-2 rounded-lg ${mode === theme.value ? 'bg-hud-accent-primary/20 text-hud-accent-primary' : 'bg-hud-bg-hover text-hud-text-muted'}`}>
-                                                    {theme.icon}
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    {/* 라이트 테마 */}
+                                    <button
+                                        onClick={() => setMode('light')}
+                                        className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${mode === 'light'
+                                            ? 'border-hud-accent-primary shadow-[0_0_20px_rgba(var(--hud-accent-primary-rgb),0.25)] scale-[1.02]'
+                                            : 'border-hud-border-secondary hover:border-hud-border-primary hover:scale-[1.01]'
+                                            }`}
+                                    >
+                                        {/* Mini Preview */}
+                                        <div className="p-3 pb-2">
+                                            <div className="rounded-lg overflow-hidden border border-gray-600/30" style={{ background: '#1a1f2e' }}>
+                                                <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-600/20">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
                                                 </div>
-                                                <span className={`text-sm font-medium ${mode === theme.value ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}>
-                                                    {theme.label}
-                                                </span>
+                                                <div className="flex h-14">
+                                                    <div className="w-8 border-r border-gray-600/20 p-1 space-y-1">
+                                                        <div className="w-full h-1 rounded bg-gray-500/40"></div>
+                                                        <div className="w-full h-1 rounded bg-gray-500/30"></div>
+                                                        <div className="w-full h-1 rounded bg-gray-500/20"></div>
+                                                    </div>
+                                                    <div className="flex-1 p-1.5 space-y-1">
+                                                        <div className="w-3/4 h-1.5 rounded bg-gray-400/40"></div>
+                                                        <div className="flex gap-1">
+                                                            <div className="flex-1 h-4 rounded bg-gray-500/20 border border-gray-500/10"></div>
+                                                            <div className="flex-1 h-4 rounded bg-gray-500/20 border border-gray-500/10"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </div>
-                                            {mode === theme.value && (
-                                                <div className="absolute top-2 right-2 w-5 h-5 bg-hud-accent-primary rounded-full flex items-center justify-center">
-                                                    <Check size={12} className="text-hud-bg-primary" />
+                                        </div>
+                                        <div className="px-3 pb-3 flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-lg transition-colors ${mode === 'light' ? 'bg-hud-accent-primary/20 text-hud-accent-primary' : 'bg-hud-bg-hover text-hud-text-muted'}`}>
+                                                <Sun size={14} />
+                                            </div>
+                                            <span className={`text-sm font-medium ${mode === 'light' ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}>라이트</span>
+                                        </div>
+                                        {mode === 'light' && (
+                                            <div className="absolute top-2 right-2 w-5 h-5 bg-hud-accent-primary rounded-full flex items-center justify-center shadow-lg">
+                                                <Check size={12} className="text-hud-bg-primary" />
+                                            </div>
+                                        )}
+                                    </button>
+
+                                    {/* 다크 테마 */}
+                                    <button
+                                        onClick={() => setMode('dark')}
+                                        className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${mode === 'dark'
+                                            ? 'border-hud-accent-primary shadow-[0_0_20px_rgba(var(--hud-accent-primary-rgb),0.25)] scale-[1.02]'
+                                            : 'border-hud-border-secondary hover:border-hud-border-primary hover:scale-[1.01]'
+                                            }`}
+                                    >
+                                        <div className="p-3 pb-2">
+                                            <div className="rounded-lg overflow-hidden border border-gray-700/30" style={{ background: '#0a0e1a' }}>
+                                                <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-700/30">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
                                                 </div>
-                                            )}
-                                        </button>
-                                    ))}
+                                                <div className="flex h-14">
+                                                    <div className="w-8 border-r border-cyan-500/10 p-1 space-y-1">
+                                                        <div className="w-full h-1 rounded bg-cyan-400/30"></div>
+                                                        <div className="w-full h-1 rounded bg-gray-600/30"></div>
+                                                        <div className="w-full h-1 rounded bg-gray-600/20"></div>
+                                                    </div>
+                                                    <div className="flex-1 p-1.5 space-y-1">
+                                                        <div className="w-3/4 h-1.5 rounded bg-gray-300/30"></div>
+                                                        <div className="flex gap-1">
+                                                            <div className="flex-1 h-4 rounded bg-cyan-400/10 border border-cyan-400/20"></div>
+                                                            <div className="flex-1 h-4 rounded bg-cyan-400/10 border border-cyan-400/20"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="px-3 pb-3 flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-lg transition-colors ${mode === 'dark' ? 'bg-hud-accent-primary/20 text-hud-accent-primary' : 'bg-hud-bg-hover text-hud-text-muted'}`}>
+                                                <Moon size={14} />
+                                            </div>
+                                            <span className={`text-sm font-medium ${mode === 'dark' ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}>다크</span>
+                                        </div>
+                                        {mode === 'dark' && (
+                                            <div className="absolute top-2 right-2 w-5 h-5 bg-hud-accent-primary rounded-full flex items-center justify-center shadow-lg">
+                                                <Check size={12} className="text-hud-bg-primary" />
+                                            </div>
+                                        )}
+                                    </button>
+
+                                    {/* 스마트 테마 - Special Premium Card */}
+                                    <button
+                                        onClick={() => setMode('smart')}
+                                        className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${mode === 'smart'
+                                            ? 'border-hud-accent-primary shadow-[0_0_24px_rgba(var(--hud-accent-primary-rgb),0.3)] scale-[1.02]'
+                                            : 'border-hud-border-secondary hover:border-hud-border-primary hover:scale-[1.01]'
+                                            }`}
+                                    >
+                                        {/* Animated gradient background for smart theme */}
+                                        <div className="absolute inset-0 opacity-20" style={{
+                                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 25%, #f093fb 50%, #ffd89b 75%, #667eea 100%)',
+                                            backgroundSize: '400% 400%',
+                                            animation: 'smartGradient 6s ease infinite',
+                                        }}></div>
+                                        <div className="relative p-3 pb-2">
+                                            {/* Split preview: day + night */}
+                                            <div className="rounded-lg overflow-hidden border border-purple-400/20 flex">
+                                                {/* Day half */}
+                                                <div className="flex-1" style={{ background: '#f1f5f9' }}>
+                                                    <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-gray-300/50">
+                                                        <div className="w-1 h-1 rounded-full bg-red-400"></div>
+                                                        <div className="w-1 h-1 rounded-full bg-yellow-400"></div>
+                                                        <div className="w-1 h-1 rounded-full bg-green-400"></div>
+                                                    </div>
+                                                    <div className="p-1 h-12 space-y-0.5">
+                                                        <div className="w-full h-1 rounded bg-gray-400/40"></div>
+                                                        <div className="w-3/4 h-1 rounded bg-gray-400/30"></div>
+                                                        <div className="flex gap-0.5 mt-1">
+                                                            <div className="flex-1 h-3 rounded-sm bg-purple-200/60"></div>
+                                                            <div className="flex-1 h-3 rounded-sm bg-blue-200/60"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                {/* Night half */}
+                                                <div className="flex-1" style={{ background: '#0a0e1a' }}>
+                                                    <div className="flex items-center gap-0.5 px-1.5 py-1 border-b border-gray-700/50">
+                                                        <div className="w-1 h-1 rounded-full bg-red-400"></div>
+                                                        <div className="w-1 h-1 rounded-full bg-yellow-400"></div>
+                                                        <div className="w-1 h-1 rounded-full bg-green-400"></div>
+                                                    </div>
+                                                    <div className="p-1 h-12 space-y-0.5">
+                                                        <div className="w-full h-1 rounded bg-gray-400/30"></div>
+                                                        <div className="w-3/4 h-1 rounded bg-gray-400/20"></div>
+                                                        <div className="flex gap-0.5 mt-1">
+                                                            <div className="flex-1 h-3 rounded-sm bg-cyan-400/20"></div>
+                                                            <div className="flex-1 h-3 rounded-sm bg-cyan-400/15"></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            {/* Day/Night indicator */}
+                                            <div className="flex justify-center gap-3 mt-1">
+                                                <span className="text-[9px] text-amber-400/70 flex items-center gap-0.5"><Sun size={8} /> 낮</span>
+                                                <span className="text-[9px] text-indigo-300/70 flex items-center gap-0.5"><Moon size={8} /> 밤</span>
+                                            </div>
+                                        </div>
+                                        <div className="relative px-3 pb-3 flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-lg transition-colors ${mode === 'smart'
+                                                ? 'bg-gradient-to-br from-amber-400/30 to-indigo-500/30 text-hud-accent-primary'
+                                                : 'bg-hud-bg-hover text-hud-text-muted'}`}>
+                                                <Coffee size={14} />
+                                            </div>
+                                            <div className="text-left">
+                                                <span className={`text-sm font-medium block leading-tight ${mode === 'smart' ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}>스마트</span>
+                                                <span className="text-[10px] text-hud-text-muted leading-tight">시간대 자동 전환</span>
+                                            </div>
+                                        </div>
+                                        {mode === 'smart' && (
+                                            <div className="absolute top-2 right-2 w-5 h-5 bg-hud-accent-primary rounded-full flex items-center justify-center shadow-lg">
+                                                <Check size={12} className="text-hud-bg-primary" />
+                                            </div>
+                                        )}
+                                    </button>
+
+                                    {/* 시스템 테마 */}
+                                    <button
+                                        onClick={() => setMode('system')}
+                                        className={`group relative overflow-hidden rounded-2xl border-2 transition-all duration-300 ${mode === 'system'
+                                            ? 'border-hud-accent-primary shadow-[0_0_20px_rgba(var(--hud-accent-primary-rgb),0.25)] scale-[1.02]'
+                                            : 'border-hud-border-secondary hover:border-hud-border-primary hover:scale-[1.01]'
+                                            }`}
+                                    >
+                                        <div className="p-3 pb-2">
+                                            <div className="rounded-lg overflow-hidden border border-gray-600/20 flex" style={{ background: 'linear-gradient(135deg, #1e293b 50%, #e2e8f0 50%)' }}>
+                                                <div className="w-full">
+                                                    <div className="flex items-center gap-1 px-2 py-1 border-b border-gray-500/20">
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-red-400"></div>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-yellow-400"></div>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-green-400"></div>
+                                                    </div>
+                                                    <div className="flex h-14 items-center justify-center">
+                                                        <Monitor size={16} className="text-gray-400/60" />
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div className="px-3 pb-3 flex items-center gap-2">
+                                            <div className={`p-1.5 rounded-lg transition-colors ${mode === 'system' ? 'bg-hud-accent-primary/20 text-hud-accent-primary' : 'bg-hud-bg-hover text-hud-text-muted'}`}>
+                                                <Monitor size={14} />
+                                            </div>
+                                            <span className={`text-sm font-medium ${mode === 'system' ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}>시스템</span>
+                                        </div>
+                                        {mode === 'system' && (
+                                            <div className="absolute top-2 right-2 w-5 h-5 bg-hud-accent-primary rounded-full flex items-center justify-center shadow-lg">
+                                                <Check size={12} className="text-hud-bg-primary" />
+                                            </div>
+                                        )}
+                                    </button>
                                 </div>
                             </HudCard>
 
+                            {/* ===== 강조 색상 ===== */}
                             <HudCard title="강조 색상" subtitle="앱의 강조 색상을 선택하세요">
-                                <div className="grid grid-cols-3 md:grid-cols-6 gap-3">
+                                <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-10 gap-3">
                                     {(Object.keys(ACCENT_COLORS) as Array<AccentColor>).map((color) => {
                                         const config = ACCENT_COLORS[color]
                                         return (
                                             <button
                                                 key={color}
                                                 onClick={() => setAccentColor(color)}
-                                                className={`relative group`}
+                                                className="relative group"
                                             >
                                                 <div
-                                                    className={`w-full aspect-square rounded-xl transition-all ${accentColor === color
-                                                        ? 'ring-2 ring-offset-2 ring-offset-hud-bg-secondary ring-white scale-110'
-                                                        : 'ring-0 scale-100 hover:scale-105'
+                                                    className={`w-full aspect-square rounded-2xl transition-all duration-300 ${accentColor === color
+                                                        ? 'ring-2 ring-offset-2 ring-offset-hud-bg-secondary ring-white scale-110 shadow-lg'
+                                                        : 'ring-0 scale-100 hover:scale-105 hover:shadow-md'
                                                         }`}
-                                                    style={{ backgroundColor: config.primary }}
+                                                    style={{
+                                                        background: `linear-gradient(135deg, ${config.primary}, ${config.info})`,
+                                                        boxShadow: accentColor === color ? `0 8px 24px ${config.primary}40` : undefined,
+                                                    }}
                                                 />
                                                 <div className="mt-2 text-center">
-                                                    <span className={`text-xs ${accentColor === color ? 'text-hud-accent-primary font-medium' : 'text-hud-text-muted'}`}>
+                                                    <span className={`text-xs font-medium transition-colors ${accentColor === color ? 'text-hud-accent-primary' : 'text-hud-text-muted'}`}>
                                                         {config.name}
                                                     </span>
                                                 </div>
                                                 {accentColor === color && (
-                                                    <div className="absolute top-1 right-1 w-4 h-4 bg-white rounded-full flex items-center justify-center shadow-lg">
-                                                        <Check size={10} className="text-gray-900" />
+                                                    <div className="absolute top-1 right-1 w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg">
+                                                        <Check size={12} className="text-gray-900" />
                                                     </div>
                                                 )}
                                             </button>
@@ -239,22 +417,22 @@ const Settings = () => {
                                 </div>
                             </HudCard>
 
+                            {/* ===== 글자 크기 ===== */}
                             <HudCard title="글자 크기" subtitle="텍스트 크기를 조절하세요">
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-3 gap-4">
                                     {fontSizes.map((size) => (
                                         <button
                                             key={size.value}
                                             onClick={() => setFontSize(size.value)}
-                                            className={`p-4 rounded-xl border-2 transition-all ${fontSize === size.value
-                                                ? 'border-hud-accent-primary bg-hud-accent-primary/10'
-                                                : 'border-hud-border-secondary bg-hud-bg-primary hover:border-hud-border-primary'
+                                            className={`p-5 rounded-2xl border-2 transition-all duration-300 flex flex-col items-center gap-2 ${fontSize === size.value
+                                                ? 'border-hud-accent-primary bg-hud-accent-primary/10 shadow-[0_0_16px_rgba(var(--hud-accent-primary-rgb),0.15)]'
+                                                : 'border-hud-border-secondary bg-hud-bg-primary hover:border-hud-border-primary hover:bg-hud-bg-hover'
                                                 }`}
                                         >
-                                            <span
-                                                className={`block ${size.value === 'small' ? 'text-sm' :
-                                                    size.value === 'large' ? 'text-lg' : 'text-base'
-                                                    } ${fontSize === size.value ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}
-                                            >
+                                            <span className={`font-semibold ${size.value === 'small' ? 'text-lg' : size.value === 'large' ? 'text-3xl' : 'text-2xl'} ${fontSize === size.value ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}>
+                                                가
+                                            </span>
+                                            <span className={`text-xs ${fontSize === size.value ? 'text-hud-accent-primary' : 'text-hud-text-muted'}`}>
                                                 {size.label}
                                             </span>
                                         </button>
@@ -262,18 +440,23 @@ const Settings = () => {
                                 </div>
                             </HudCard>
 
+                            {/* ===== 모서리 둥글기 ===== */}
                             <HudCard title="모서리 둥글기" subtitle="UI 요소의 모서리 스타일을 선택하세요">
-                                <div className="grid grid-cols-3 gap-3">
+                                <div className="grid grid-cols-3 gap-4">
                                     {borderRadii.map((radius) => (
                                         <button
                                             key={radius.value}
                                             onClick={() => setBorderRadius(radius.value)}
-                                            className={`p-4 border-2 transition-all ${radius.preview} ${borderRadius === radius.value
-                                                ? 'border-hud-accent-primary bg-hud-accent-primary/10'
-                                                : 'border-hud-border-secondary bg-hud-bg-primary hover:border-hud-border-primary'
+                                            className={`p-5 border-2 transition-all duration-300 flex flex-col items-center gap-3 ${radius.preview} ${borderRadius === radius.value
+                                                ? 'border-hud-accent-primary bg-hud-accent-primary/10 shadow-[0_0_16px_rgba(var(--hud-accent-primary-rgb),0.15)]'
+                                                : 'border-hud-border-secondary bg-hud-bg-primary hover:border-hud-border-primary hover:bg-hud-bg-hover'
                                                 }`}
                                         >
-                                            <span className={`text-sm ${borderRadius === radius.value ? 'text-hud-accent-primary' : 'text-hud-text-secondary'}`}>
+                                            {/* Visual preview of border radius */}
+                                            <div
+                                                className={`w-10 h-10 border-2 transition-colors ${radius.value === 'sharp' ? 'rounded-none' : radius.value === 'medium' ? 'rounded-lg' : 'rounded-2xl'} ${borderRadius === radius.value ? 'border-hud-accent-primary bg-hud-accent-primary/20' : 'border-hud-text-muted/30 bg-hud-bg-hover'}`}
+                                            ></div>
+                                            <span className={`text-xs ${borderRadius === radius.value ? 'text-hud-accent-primary' : 'text-hud-text-muted'}`}>
                                                 {radius.label}
                                             </span>
                                         </button>
@@ -281,13 +464,16 @@ const Settings = () => {
                                 </div>
                             </HudCard>
 
+                            {/* ===== 기타 설정 ===== */}
                             <HudCard title="기타 설정" subtitle="추가 표시 옵션">
                                 <div className="space-y-3">
-                                    <div className="flex items-center justify-between p-4 bg-hud-bg-primary rounded-lg">
+                                    <div className="flex items-center justify-between p-4 bg-hud-bg-primary rounded-xl border border-hud-border-secondary/50 transition-all hover:border-hud-border-primary/50">
                                         <div className="flex items-center gap-3">
-                                            <Sparkles size={18} className="text-hud-accent-primary" />
+                                            <div className="p-2 rounded-lg bg-hud-accent-primary/10">
+                                                <Sparkles size={18} className="text-hud-accent-primary" />
+                                            </div>
                                             <div>
-                                                <p className="text-sm text-hud-text-primary">컴팩트 모드</p>
+                                                <p className="text-sm font-medium text-hud-text-primary">컴팩트 모드</p>
                                                 <p className="text-xs text-hud-text-muted">더 좁은 간격으로 표시</p>
                                             </div>
                                         </div>

@@ -29,7 +29,7 @@ import HudCard from '../../components/common/HudCard';
 import Button from '../../components/common/Button';
 import type { RealEstateTypeCode, TradeTypeCode } from '../../types/naver-land';
 
-const API_BASE = import.meta.env.VITE_API_BASE || window.location.protocol + '//' + window.location.hostname + ':3001';
+import { API_BASE } from '../../lib/api';
 
 // ============================================
 // 타입 정의
@@ -68,6 +68,19 @@ type Complex = {
     leaseCount?: number;
     rentCount?: number;
     totalArticleCount?: number;
+    // 추가 정보 (네이버 API에서 제공)
+    completionYearMonth?: string;    // 준공 연월 "201711"
+    totalHouseholdCount?: number;    // 총 세대수
+    totalDongCount?: number;         // 총 동수
+    minArea?: string;                // 최소 면적 "59.91"
+    maxArea?: string;                // 최대 면적 "84.99"
+    representativeArea?: number;     // 대표 면적
+    floorAreaRatio?: number;         // 용적률
+    // 대표 가격 정보 (서버에서 첫번째 매물 기준)
+    representativePrice?: string;    // "9억 5,000" | "7,500"
+    representativeTrade?: string;    // "매매" | "전세" | "월세"
+    representativeTradeCode?: string; // "A1" | "B1" | "B2"
+    representativeRentPrc?: string;   // 월세일 때 월 임대료
 };
 
 type Region = {
@@ -88,6 +101,7 @@ const PROPERTY_TYPES = [
     { code: 'APT' as const, name: '아파트', icon: <Building2 size={16} /> },
     { code: 'OPST' as const, name: '오피스텔', icon: <Building2 size={16} /> },
     { code: 'VL' as const, name: '빌라/연립', icon: <Home size={16} /> },
+    { code: 'DDDGG' as const, name: '단독/다가구', icon: <Home size={16} /> },
     { code: 'ONEROOM' as const, name: '원룸', icon: <Home size={16} /> },
     { code: 'TWOROOM' as const, name: '투룸', icon: <Home size={16} /> },
     { code: 'SG' as const, name: '상가', icon: <Layers size={16} /> },
@@ -116,7 +130,7 @@ const RealEstate = () => {
     // ============================================
     // State
     // ============================================
-    const [selectedTypes, setSelectedTypes] = useState<RealEstateTypeCode[]>(['APT']);
+    const [selectedType, setSelectedType] = useState<RealEstateTypeCode>('APT');
     const [selectedTrade, setSelectedTrade] = useState<TradeTypeCode>('A1');
     const [priceMin, setPriceMin] = useState<number>(0);
     const [priceMax, setPriceMax] = useState<number>(1000000); // 만원단위
@@ -180,8 +194,8 @@ const RealEstate = () => {
                     if (state.selectedRegion) {
                         setSelectedRegion(state.selectedRegion);
                     }
-                    if (state.selectedTypes) {
-                        setSelectedTypes(state.selectedTypes);
+                    if (state.selectedType) {
+                        setSelectedType(state.selectedType);
                     }
                     if (state.selectedTrade) {
                         setSelectedTrade(state.selectedTrade);
@@ -212,13 +226,13 @@ const RealEstate = () => {
         loading(true);
 
         try {
-            const realEstateType = selectedTypes.length > 0 ? selectedTypes.join(':') : '';
+            const realEstateType = selectedType;
 
             // 아파트/오피스텔은 단지(complexes) API를 먼저 호출
-            if (selectedTypes.includes('APT') || selectedTypes.includes('OPST')) {
+            if (selectedType === 'APT' || selectedType === 'OPST') {
                 const params = new URLSearchParams({
                     cortarNo: selectedRegion.cortarNo,
-                    realEstateType: selectedTypes.includes('APT') ? 'APT' : 'OPST',
+                    realEstateType: selectedType,
                     tradeType: selectedTrade,
                     zoom: '15', // 줌 레벨
                 });
@@ -238,36 +252,18 @@ const RealEstate = () => {
                 localStorage.setItem('complexListState', JSON.stringify({
                     complexes: newComplexes,
                     selectedRegion,
-                    selectedTypes,
+                    selectedType,
                     selectedTrade,
                     timestamp: new Date().toISOString(),
                 }));
             } else {
-                // 빌라/원룸/상가는 매물(articles) API 직접 호출
-                const params = new URLSearchParams({
+                // 빌라/원룸/상가 등: 임시 매물 목록 페이지로 이동
+                const queryParams = new URLSearchParams({
                     cortarNo: selectedRegion.cortarNo,
-                    realEstateType,
-                    tradeType: selectedTrade,
-                    page: pageNum.toString(),
+                    cortarName: selectedRegion.cortarName,
+                    realEstateType: realEstateType,
                 });
-
-                if (priceMin > 0) params.append('priceMin', (priceMin * 10000).toString());
-                if (priceMax < 1000000) params.append('priceMax', (priceMax * 10000).toString());
-
-                const response = await fetch(`${API_BASE}/api/articles?${params.toString()}`);
-                const data = await response.json();
-
-                const newArticles = data.articleList || [];
-
-                if (pageNum === 1) {
-                    setArticles(newArticles);
-                } else {
-                    setArticles(prev => [...prev, ...newArticles]);
-                }
-
-                setPage(pageNum);
-                setHasMore(data.isMoreData || false);
-                setComplexes([]); // 매물 모드에서는 단지 비움
+                navigate(`/real-estate/apartment-temp-properties?${queryParams.toString()}`);
             }
         } catch (error) {
             console.error('Search error:', error);
@@ -279,10 +275,8 @@ const RealEstate = () => {
     // ============================================
     // Handlers
     // ============================================
-    const toggleType = (code: RealEstateTypeCode) => {
-        setSelectedTypes(prev =>
-            prev.includes(code) ? prev.filter(t => t !== code) : [...prev, code]
-        );
+    const selectType = (code: RealEstateTypeCode) => {
+        setSelectedType(code);
     };
 
     const handleRegionSelect = (region: Region) => {
@@ -447,9 +441,9 @@ const RealEstate = () => {
             </div>
 
             {/* Main Content Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
                 {/* Filter Sidebar */}
-                <div className={`${showFilter ? 'block' : 'hidden'} xl:block xl:col-span-1`}>
+                <div className={`${showFilter ? 'block' : 'hidden'} lg:block lg:col-span-1`}>
                     <HudCard title="검색 조건" subtitle="필터를 설정하세요">
                         <div className="space-y-5">
                             {/* 지역 선택 */}
@@ -487,10 +481,10 @@ const RealEstate = () => {
                                     {PROPERTY_TYPES.map((type) => (
                                         <button
                                             key={type.code}
-                                            onClick={() => toggleType(type.code)}
-                                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all ${selectedTypes.includes(type.code)
-                                                    ? 'bg-hud-accent-primary/20 border-hud-accent-primary text-hud-accent-primary'
-                                                    : 'bg-hud-bg-primary border-hud-border-secondary text-hud-text-secondary hover:bg-hud-bg-hover'
+                                            onClick={() => selectType(type.code)}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border transition-all ${selectedType === type.code
+                                                ? 'bg-hud-accent-primary/20 border-hud-accent-primary text-hud-accent-primary'
+                                                : 'bg-hud-bg-primary border-hud-border-secondary text-hud-text-secondary hover:bg-hud-bg-hover'
                                                 }`}
                                         >
                                             {type.icon}
@@ -512,8 +506,8 @@ const RealEstate = () => {
                                             key={type.code}
                                             onClick={() => setSelectedTrade(type.code)}
                                             className={`px-3 py-2 text-xs rounded-lg border transition-all ${selectedTrade === type.code
-                                                    ? 'bg-hud-accent-primary border-hud-accent-primary text-hud-bg-primary font-medium'
-                                                    : 'bg-hud-bg-primary border-hud-border-secondary text-hud-text-secondary hover:bg-hud-bg-hover'
+                                                ? 'bg-hud-accent-primary border-hud-accent-primary text-hud-bg-primary font-medium'
+                                                : 'bg-hud-bg-primary border-hud-border-secondary text-hud-text-secondary hover:bg-hud-bg-hover'
                                                 }`}
                                         >
                                             {type.name}
@@ -616,7 +610,7 @@ const RealEstate = () => {
                 </div>
 
                 {/* Results Area */}
-                <div className="xl:col-span-3">
+                <div className="lg:col-span-3">
                     <HudCard
                         title={complexes.length > 0 ? "단지 목록" : "매물 목록"}
                         subtitle={selectedRegion ? `${selectedRegion.cortarName} ${hasSearched ? `(${complexes.length > 0 ? complexes.length + '개 단지' : articles.length + '건'})` : ''}` : '지역을 선택하세요'}
@@ -672,7 +666,8 @@ const RealEstate = () => {
                                                 onClick={() => handleComplexClick(complex)}
                                                 className="bg-hud-bg-primary border border-hud-border-secondary rounded-lg p-4 hover:border-hud-accent-primary/50 cursor-pointer transition-all hover:shadow-lg hover:shadow-hud-accent-primary/10"
                                             >
-                                                <div className="flex justify-between items-start mb-3">
+                                                {/* 상단: 단지명 + 총 매물 */}
+                                                <div className="flex justify-between items-start mb-2">
                                                     <div className="flex-1 min-w-0">
                                                         <h3 className="text-sm font-semibold text-hud-text-primary truncate">
                                                             {complex.complexName}
@@ -680,21 +675,72 @@ const RealEstate = () => {
                                                         <p className="text-xs text-hud-text-muted">{complex.realEstateTypeName}</p>
                                                     </div>
                                                     {complex.totalArticleCount !== undefined && (
-                                                        <span className="text-xs bg-hud-accent-primary/20 text-hud-accent-primary px-2 py-1 rounded-full">
+                                                        <span className="text-xs bg-hud-accent-primary/20 text-hud-accent-primary px-2 py-1 rounded-full font-medium whitespace-nowrap ml-2">
                                                             {complex.totalArticleCount}건
                                                         </span>
                                                     )}
                                                 </div>
-                                                <div className="flex gap-2 text-xs text-hud-text-muted">
-                                                    {complex.dealCount !== undefined && complex.dealCount > 0 && (
-                                                        <span>매매 {complex.dealCount}</span>
-                                                    )}
-                                                    {complex.leaseCount !== undefined && complex.leaseCount > 0 && (
-                                                        <span>전세 {complex.leaseCount}</span>
-                                                    )}
-                                                    {complex.rentCount !== undefined && complex.rentCount > 0 && (
-                                                        <span>월세 {complex.rentCount}</span>
-                                                    )}
+
+                                                {/* 가격 정보 (핵심) */}
+                                                {complex.representativePrice ? (
+                                                    <div className="mb-3 p-2.5 bg-hud-bg-card rounded-lg border border-hud-border-secondary/50">
+                                                        <div className="flex items-baseline gap-2">
+                                                            <span className={`text-xs font-medium px-1.5 py-0.5 rounded ${complex.representativeTradeCode === 'A1'
+                                                                ? 'bg-hud-accent-danger/15 text-hud-accent-danger'
+                                                                : complex.representativeTradeCode === 'B1'
+                                                                    ? 'bg-hud-accent-success/15 text-hud-accent-success'
+                                                                    : 'bg-hud-accent-warning/15 text-hud-accent-warning'
+                                                                }`}>
+                                                                {complex.representativeTrade}
+                                                            </span>
+                                                            <span className="text-base font-bold text-hud-accent-primary">
+                                                                {complex.representativeTradeCode === 'B2' && complex.representativeRentPrc
+                                                                    ? `${complex.representativePrice}/${complex.representativeRentPrc}`
+                                                                    : complex.representativePrice
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                        {complex.representativeArea && (
+                                                            <span className="text-xs text-hud-text-muted mt-1 block">
+                                                                {Math.round(complex.representativeArea)}㎡ 기준 (최저가)
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                ) : (
+                                                    <div className="mb-3 p-2.5 bg-hud-bg-card rounded-lg text-center">
+                                                        <span className="text-xs text-hud-text-muted">가격 정보 없음</span>
+                                                    </div>
+                                                )}
+
+                                                {/* 하단: 면적 · 준공 · 거래 건수 */}
+                                                <div className="flex items-center justify-between text-xs text-hud-text-muted">
+                                                    <div className="flex gap-3">
+                                                        {complex.minArea && (
+                                                            <span>
+                                                                {complex.minArea === complex.maxArea
+                                                                    ? `${Math.round(Number(complex.minArea))}㎡`
+                                                                    : `${Math.round(Number(complex.minArea))}~${Math.round(Number(complex.maxArea || complex.minArea))}㎡`
+                                                                }
+                                                            </span>
+                                                        )}
+                                                        {complex.completionYearMonth && (
+                                                            <span>{complex.completionYearMonth.slice(0, 4)}년</span>
+                                                        )}
+                                                        {complex.totalHouseholdCount && (
+                                                            <span>{complex.totalHouseholdCount.toLocaleString()}세대</span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex gap-1.5">
+                                                        {complex.dealCount !== undefined && complex.dealCount > 0 && (
+                                                            <span className="text-hud-accent-danger">매{complex.dealCount}</span>
+                                                        )}
+                                                        {complex.leaseCount !== undefined && complex.leaseCount > 0 && (
+                                                            <span className="text-hud-accent-success">전{complex.leaseCount}</span>
+                                                        )}
+                                                        {complex.rentCount !== undefined && complex.rentCount > 0 && (
+                                                            <span className="text-hud-accent-warning">월{complex.rentCount}</span>
+                                                        )}
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -716,8 +762,8 @@ const RealEstate = () => {
                                                     key={option.value}
                                                     onClick={() => setSortBy(option.value)}
                                                     className={`flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg transition-colors ${sortBy === option.value
-                                                            ? 'bg-hud-accent-primary text-hud-bg-primary'
-                                                            : 'bg-hud-bg-primary text-hud-text-secondary hover:bg-hud-bg-hover'
+                                                        ? 'bg-hud-accent-primary text-hud-bg-primary'
+                                                        : 'bg-hud-bg-primary text-hud-text-secondary hover:bg-hud-bg-hover'
                                                         }`}
                                                 >
                                                     {option.icon}

@@ -7,7 +7,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { useThemeStore } from './themeStore';
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+import { API_BASE } from '../lib/api';
 
 // 사용자 타입
 export interface User {

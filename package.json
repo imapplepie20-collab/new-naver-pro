@@ -8,6 +8,8 @@
     "dev:api": "bun run src/server/index.ts",
     "dev:all": "npm-run-all --parallel dev dev:api",
     "build": "tsc -b && vite build",
+    "build:all": "npx prisma generate && tsc -b && vite build",
+    "start": "NODE_ENV=production bun run src/server/index.ts",
     "lint": "eslint .",
     "preview": "vite preview"
   },

@@ -24,7 +24,7 @@ import ExcelExportModal, { EXPORT_FIELDS, ExportFieldKey } from '../../component
 import type { Article } from '../../types/naver-land';
 
 const ITEMS_PER_PAGE = 20; // 네이버 API와 동일하게 20개씩
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+import { API_BASE } from '../../lib/api';
 
 // 매물 아이템 타입 (기존 Article + id)
 interface ArticleWithId extends Article {
@@ -38,8 +38,12 @@ const ApartmentTempPropertyList = () => {
   // URL 파라미터에서 정보 가져오기
   const complexNo = searchParams.get('complexNo') || '';
   const complexName = searchParams.get('complexName') || '';
+  const cortarNo = searchParams.get('cortarNo') || '';
   const cortarName = searchParams.get('cortarName') || '';
   const realEstateTypeCode = searchParams.get('realEstateType') || 'APT';
+
+  // 단지 모드 vs 지역 모드 판별
+  const isComplexMode = !!complexNo;
 
   // 상태
   const [articles, setArticles] = useState<ArticleWithId[]>([]);
@@ -63,14 +67,16 @@ const ApartmentTempPropertyList = () => {
   // 거래 방식 (기본값: A1 매매)
   const [tradeType, setTradeType] = useState<string>('A1');
 
-  // 실제 매물 타입 (APT:PRE, APT:OPST 등)
+  // 실제 매물 타입
   const getRealEstateType = useCallback(() => {
-    return realEstateTypeCode === 'OPST' ? 'APT:OPST' : 'APT:PRE';
+    if (realEstateTypeCode === 'OPST') return 'APT:OPST';
+    if (realEstateTypeCode === 'APT') return 'APT:PRE';
+    return realEstateTypeCode; // VL, DDDGG, ONEROOM 등은 그대로
   }, [realEstateTypeCode]);
 
   // API로 매물 로드
   const loadArticles = useCallback(async (page: number = 1, isLoadMore: boolean = false) => {
-    if (!complexNo) return;
+    if (!complexNo && !cortarNo) return;
 
     if (isLoadMore) {
       setIsLoadingMore(true);
@@ -81,23 +87,38 @@ const ApartmentTempPropertyList = () => {
 
     try {
       const realEstateType = getRealEstateType();
-      const params = new URLSearchParams({
-        realEstateType,
-        tradeType,
-        page: page.toString(),
-        order: 'rank',
-      });
+      let response: Response;
 
-      const response = await fetch(`${API_BASE}/api/articles/complex/${complexNo}?${params.toString()}`);
+      if (isComplexMode) {
+        // 단지 모드: 단지별 매물 API
+        const params = new URLSearchParams({
+          realEstateType,
+          tradeType,
+          page: page.toString(),
+          order: 'rank',
+        });
+        response = await fetch(`${API_BASE}/api/articles/complex/${complexNo}?${params.toString()}`);
+      } else {
+        // 지역 모드: 일반 매물 API
+        const params = new URLSearchParams({
+          cortarNo,
+          realEstateType,
+          tradeType,
+          page: page.toString(),
+          order: 'rank',
+        });
+        response = await fetch(`${API_BASE}/api/articles?${params.toString()}`);
+      }
       const data = await response.json();
 
       const newArticles: Article[] = data.articleList || [];
       const isMoreData = data.isMoreData ?? (newArticles.length === ITEMS_PER_PAGE);
 
       // id 추가
+      const prefix = complexNo || cortarNo;
       const articlesWithId: ArticleWithId[] = newArticles.map((a) => ({
         ...a,
-        id: `${complexNo}_${a.articleNo}`,
+        id: `${prefix}_${a.articleNo}`,
       }));
 
       if (isLoadMore) {
@@ -116,17 +137,17 @@ const ApartmentTempPropertyList = () => {
       setIsLoading(false);
       setIsLoadingMore(false);
     }
-  }, [complexNo, getRealEstateType, tradeType]);
+  }, [complexNo, cortarNo, isComplexMode, getRealEstateType, tradeType]);
 
   // 초기 로드
   useEffect(() => {
-    if (complexNo) {
+    if (complexNo || cortarNo) {
       setArticles([]);
       setCurrentPage(1);
       setHasMore(true);
       loadArticles(1, false);
     }
-  }, [complexNo, tradeType]); // 거래 방식이 변경되면 다시 로드
+  }, [complexNo, cortarNo, tradeType]); // 거래 방식이 변경되면 다시 로드
 
   // Intersection Observer를 사용한 무한 스크롤
   useEffect(() => {
@@ -372,7 +393,7 @@ const ApartmentTempPropertyList = () => {
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
     const dateStr = new Date().toISOString().slice(0, 10);
-    link.download = `${complexName || '매물'}_${dateStr}.csv`;
+    link.download = `${complexName || cortarName || '매물'}_${dateStr}.csv`;
     link.click();
 
     return Promise.resolve();
@@ -420,7 +441,7 @@ const ApartmentTempPropertyList = () => {
 
   // 전체 매물 로드 (모든 페이지 한 번에 로드)
   const loadAllArticles = async () => {
-    if (!complexNo || isLoadingAll || !hasMore) return;
+    if ((!complexNo && !cortarNo) || isLoadingAll || !hasMore) return;
 
     setIsLoadingAll(true);
     const allArticles: ArticleWithId[] = [...articles]; // 이미 로드된 매물
@@ -431,22 +452,35 @@ const ApartmentTempPropertyList = () => {
 
       while (moreData) {
         const realEstateType = getRealEstateType();
-        const params = new URLSearchParams({
-          realEstateType,
-          tradeType,
-          page: page.toString(),
-          order: 'rank',
-        });
+        let response: Response;
 
-        const response = await fetch(`${API_BASE}/api/articles/complex/${complexNo}?${params.toString()}`);
+        if (isComplexMode) {
+          const params = new URLSearchParams({
+            realEstateType,
+            tradeType,
+            page: page.toString(),
+            order: 'rank',
+          });
+          response = await fetch(`${API_BASE}/api/articles/complex/${complexNo}?${params.toString()}`);
+        } else {
+          const params = new URLSearchParams({
+            cortarNo,
+            realEstateType,
+            tradeType,
+            page: page.toString(),
+            order: 'rank',
+          });
+          response = await fetch(`${API_BASE}/api/articles?${params.toString()}`);
+        }
         const data = await response.json();
 
         const newArticles: Article[] = data.articleList || [];
         moreData = data.isMoreData ?? (newArticles.length === ITEMS_PER_PAGE);
 
+        const prefix = complexNo || cortarNo;
         const articlesWithId: ArticleWithId[] = newArticles.map((a) => ({
           ...a,
-          id: `${complexNo}_${a.articleNo}`,
+          id: `${prefix}_${a.articleNo}`,
         }));
 
         allArticles.push(...articlesWithId);
@@ -475,11 +509,11 @@ const ApartmentTempPropertyList = () => {
             onClick={() => navigate('/real-estate')}
           >
             <ArrowLeft className="w-4 h-4 mr-1" />
-            단지 목록
+            {isComplexMode ? '단지 목록' : '검색으로 돌아가기'}
           </Button>
           <div>
             <h1 className="text-xl font-bold text-hud-text-primary">
-              {complexName}
+              {complexName || cortarName || '매물'}
               <span className="text-hud-text-secondary font-normal ml-2">매물 목록</span>
             </h1>
             <div className="flex items-center gap-2 mt-1 text-sm text-hud-text-muted">
@@ -690,7 +724,7 @@ const ApartmentTempPropertyList = () => {
                     </div>
                     <div className="col-span-1">
                       <span className="text-xs text-hud-text-secondary">
-                        {realEstateTypeCode === 'OPST' ? '오피스텔' : '아파트'}
+                        {article.realEstateTypeName || realEstateTypeCode}
                       </span>
                     </div>
                     <div className="col-span-1">

@@ -22,7 +22,7 @@ interface RegionSelectorModalProps {
   onSelect: (region: Region) => void;
 }
 
-const API_BASE = import.meta.env.VITE_API_BASE || window.location.protocol + '//' + window.location.hostname + ':3001';
+import { API_BASE } from '../../lib/api';
 
 const POPULAR_REGIONS = [
   { cortarNo: '1100000000', cortarName: '서울', cortarType: 'city' as const },
@@ -126,8 +126,9 @@ const RegionSelectorModal: React.FC<RegionSelectorModalProps> = ({
   };
 
   const handlePopularSelect = (region: Region) => {
-    onSelect(region);
-    handleClose();
+    // 인기 지역 선택 시 최상위 지역 선택과 동일하게 동작
+    // (하위 지역 목록을 보여줌)
+    handleRegionClick(region);
   };
 
   const handleClose = () => {
@@ -210,11 +211,10 @@ const RegionSelectorModal: React.FC<RegionSelectorModalProps> = ({
                   <ChevronRight className="w-4 h-4 text-hud-text-muted flex-shrink-0" />
                   <button
                     onClick={() => handleBreadcrumbClick(index)}
-                    className={`px-2 py-1 text-sm rounded-lg transition-colors whitespace-nowrap ${
-                      index === selectedPath.length - 1
-                        ? 'text-hud-text-primary font-medium bg-hud-bg-hover'
-                        : 'text-hud-accent-primary hover:bg-hud-accent-primary/10'
-                    }`}
+                    className={`px-2 py-1 text-sm rounded-lg transition-colors whitespace-nowrap ${index === selectedPath.length - 1
+                      ? 'text-hud-text-primary font-medium bg-hud-bg-hover'
+                      : 'text-hud-accent-primary hover:bg-hud-accent-primary/10'
+                      }`}
                   >
                     {region.cortarName}
                   </button>

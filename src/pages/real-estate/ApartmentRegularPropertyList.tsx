@@ -24,7 +24,7 @@ import ExcelExportModal, { EXPORT_FIELDS, ExportFieldKey } from '../../component
 import type { Article } from '../../types/naver-land';
 
 const ITEMS_PER_PAGE = 50;
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+import { API_BASE } from '../../lib/api';
 
 // 정규 매물 타입
 interface RegularArticle extends Article {
@@ -66,6 +66,7 @@ const ApartmentRegularPropertyList = () => {
   // 필터 상태
   const [filterComplex, setFilterComplex] = useState('');
   const [selectedPropertyTypes, setSelectedPropertyTypes] = useState<Set<string>>(new Set());
+  const [selectedTradeType, setSelectedTradeType] = useState<string>(''); // '' = 전체
 
   // 매물 유형 정의 (네이버 부동산 기준)
   const PROPERTY_TYPES = [
@@ -146,6 +147,11 @@ const ApartmentRegularPropertyList = () => {
       });
     }
 
+    // 거래 유형 필터
+    if (selectedTradeType) {
+      processed = processed.filter((a) => a.tradeTypeCode === selectedTradeType);
+    }
+
     // 단지명 필터
     if (filterComplex) {
       processed = processed.filter(
@@ -194,7 +200,7 @@ const ApartmentRegularPropertyList = () => {
     });
 
     return processed;
-  }, [articles, filterComplex, sortField, sortOrder]);
+  }, [articles, selectedPropertyTypes, selectedTradeType, filterComplex, sortField, sortOrder]);
 
   // 페이징 처리
   const totalPages = Math.ceil(processedArticles.length / ITEMS_PER_PAGE);
@@ -290,6 +296,34 @@ const ApartmentRegularPropertyList = () => {
     } catch (error) {
       console.error('일괄 삭제 실패:', error);
       alert('삭제에 실패했습니다.');
+    }
+  };
+
+  // 전체 삭제
+  const deleteAll = async () => {
+    if (articles.length === 0) return;
+    if (!confirm(`정말로 전체 ${articles.length}개 매물을 모두 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.`)) return;
+
+    try {
+      const articleNos = articles.map((a) => a.id);
+      const response = await fetch(`${API_BASE}/api/user/saved-properties`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ articleNos }),
+      });
+
+      if (response.ok) {
+        setArticles([]);
+        setSelectedItems(new Set());
+        setCurrentPage(1);
+      } else {
+        alert('전체 삭제에 실패했습니다.');
+      }
+    } catch (error) {
+      console.error('전체 삭제 실패:', error);
+      alert('전체 삭제에 실패했습니다.');
     }
   };
 
@@ -463,55 +497,68 @@ const ApartmentRegularPropertyList = () => {
   }, [articles]);
 
   return (
-    <div className="container mx-auto p-4">
+    <div className="p-4">
       {/* 헤더 */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-4">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => navigate('/real-estate')}
-          >
-            <ArrowLeft className="w-4 h-4 mr-1" />
-            단지 목록
-          </Button>
-          <div>
-            <h1 className="text-xl font-bold text-hud-text-primary">
-              정규 매물 목록
-            </h1>
-            <div className="flex items-center gap-3 mt-1 text-sm text-hud-text-muted">
-              <span>총 {stats.totalCount}건</span>
-              <span>·</span>
-              <span>{stats.uniqueComplexes}개 단지</span>
+      <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => navigate('/real-estate')}
+            >
+              <ArrowLeft className="w-4 h-4 mr-1" />
+              단지 목록
+            </Button>
+            <div>
+              <h1 className="text-lg sm:text-xl font-bold text-hud-text-primary">
+                정규 매물 목록
+              </h1>
+              <div className="flex items-center gap-2 mt-0.5 text-xs sm:text-sm text-hud-text-muted">
+                <span>총 {stats.totalCount}건</span>
+                <span>·</span>
+                <span>{stats.uniqueComplexes}개 단지</span>
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={deleteSelected}
-            disabled={selectedItems.size === 0}
-          >
-            <Trash2 className="w-4 h-4 mr-1" />
-            삭제 ({selectedItems.size})
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setShowExportModal(true)}
-          >
-            <Download className="w-4 h-4 mr-1" />
-            엑셀 다운로드
-          </Button>
+          <div className="flex items-center gap-1 flex-wrap">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={deleteSelected}
+              disabled={selectedItems.size === 0}
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              선택 삭제 ({selectedItems.size})
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={deleteAll}
+              disabled={articles.length === 0}
+              className="text-hud-accent-danger hover:text-hud-accent-danger"
+            >
+              <Trash2 className="w-4 h-4 mr-1" />
+              전체 삭제
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowExportModal(true)}
+            >
+              <Download className="w-4 h-4 mr-1" />
+              엑셀 다운로드
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* 매물 유형 필터 */}
-      <div className="mb-4 p-3 bg-hud-bg-secondary border border-hud-border-secondary rounded-lg">
+      {/* 매물 유형 + 거래 유형 필터 */}
+      <div className="mb-4 p-3 bg-hud-bg-secondary border border-hud-border-secondary rounded-lg space-y-3">
+        {/* 매물 유형 */}
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm text-hud-text-secondary font-medium">매물 유형:</span>
+          <span className="text-sm text-hud-text-secondary font-medium min-w-[70px]">매물 유형:</span>
           <div className="flex gap-1 flex-wrap">
             <button
               onClick={() => setSelectedPropertyTypes(new Set())}
@@ -535,6 +582,7 @@ const ApartmentRegularPropertyList = () => {
                       newTypes.add(type.code);
                     }
                     setSelectedPropertyTypes(newTypes);
+                    setCurrentPage(1);
                   }}
                   className={`px-3 py-1.5 text-sm rounded-md transition-colors ${isSelected
                     ? 'bg-hud-accent-primary text-white'
@@ -546,11 +594,33 @@ const ApartmentRegularPropertyList = () => {
               );
             })}
           </div>
-          {selectedPropertyTypes.size > 0 && (
-            <span className="text-xs text-hud-accent-primary ml-2">
-              {selectedPropertyTypes.size}개 선택됨
-            </span>
-          )}
+        </div>
+
+        {/* 거래 유형 */}
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-sm text-hud-text-secondary font-medium min-w-[70px]">거래 유형:</span>
+          <div className="flex gap-1">
+            {[
+              { code: '', label: '전체' },
+              { code: 'A1', label: '매매' },
+              { code: 'B1', label: '전세' },
+              { code: 'B2', label: '월세' },
+            ].map((type) => (
+              <button
+                key={type.code}
+                onClick={() => {
+                  setSelectedTradeType(type.code);
+                  setCurrentPage(1);
+                }}
+                className={`px-3 py-1.5 text-sm rounded-md transition-colors ${selectedTradeType === type.code
+                  ? 'bg-hud-accent-primary text-white'
+                  : 'bg-hud-bg-tertiary text-hud-text-secondary hover:bg-hud-bg-hover'
+                  }`}
+              >
+                {type.label}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -628,7 +698,7 @@ const ApartmentRegularPropertyList = () => {
       </HudCard>
 
       {/* 그리드 테이블 */}
-      <HudCard noPadding>
+      <HudCard noPadding className="overflow-x-auto">
         {isLoading ? (
           <div className="flex items-center justify-center h-64">
             <div className="flex flex-col items-center gap-3">
@@ -663,141 +733,143 @@ const ApartmentRegularPropertyList = () => {
           </div>
         ) : (
           <>
-            {/* 테이블 헤더 */}
-            <div className="grid grid-cols-12 gap-2 px-4 py-3 bg-hud-bg-secondary border-b border-hud-border-secondary text-sm font-medium text-hud-text-primary">
-              <div className="col-span-1 flex items-center">
-                <button
-                  onClick={toggleSelectAll}
-                  className="p-1 hover:bg-hud-bg-hover rounded"
-                  title={isCurrentPageAllSelected ? '전체 해제' : '전체 선택'}
-                >
-                  {isCurrentPageAllSelected ? (
-                    <CheckSquare className="w-4 h-4 text-hud-accent-primary" />
-                  ) : (
-                    <Square className="w-4 h-4 text-hud-text-muted" />
-                  )}
-                </button>
+            <div className="min-w-[900px]">
+              {/* 테이블 헤더 */}
+              <div className="grid grid-cols-12 gap-0 px-4 py-3 bg-hud-bg-secondary border-b border-hud-border-secondary text-sm font-medium text-hud-text-primary">
+                <div className="col-span-1 flex items-center border-r border-hud-border-secondary pr-2">
+                  <button
+                    onClick={toggleSelectAll}
+                    className="p-1 hover:bg-hud-bg-hover rounded"
+                    title={isCurrentPageAllSelected ? '전체 해제' : '전체 선택'}
+                  >
+                    {isCurrentPageAllSelected ? (
+                      <CheckSquare className="w-4 h-4 text-hud-accent-primary" />
+                    ) : (
+                      <Square className="w-4 h-4 text-hud-text-muted" />
+                    )}
+                  </button>
+                </div>
+                <div className="col-span-2 px-2 border-r border-hud-border-secondary">단지명/매물명</div>
+                <div className="col-span-1 px-2 border-r border-hud-border-secondary">매물유형</div>
+                <div className="col-span-1 px-2 border-r border-hud-border-secondary">거래</div>
+                <div className="col-span-1 px-2 border-r border-hud-border-secondary cursor-pointer hover:text-hud-accent-primary" onClick={() => handleSort('price')}>
+                  가격 {sortField === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
+                </div>
+                <div className="col-span-1 px-2 border-r border-hud-border-secondary">월세</div>
+                <div className="col-span-1 px-2 border-r border-hud-border-secondary">면적</div>
+                <div className="col-span-1 px-2 border-r border-hud-border-secondary">층</div>
+                <div className="col-span-1 px-2 border-r border-hud-border-secondary">저장일시</div>
+                <div className="col-span-1 px-2">관리</div>
               </div>
-              <div className="col-span-2">단지명/매물명</div>
-              <div className="col-span-1">매물유형</div>
-              <div className="col-span-1">거래</div>
-              <div className="col-span-1 cursor-pointer hover:text-hud-accent-primary" onClick={() => handleSort('price')}>
-                가격 {sortField === 'price' && (sortOrder === 'asc' ? '↑' : '↓')}
-              </div>
-              <div className="col-span-1">월세</div>
-              <div className="col-span-1">면적</div>
-              <div className="col-span-1">층</div>
-              <div className="col-span-1">저장일시</div>
-              <div className="col-span-1">관리</div>
-            </div>
 
-            {/* 테이블 바디 */}
-            <div className="max-h-[calc(100vh-350px)] overflow-y-auto">
-              {currentArticles.map((article) => (
-                <div
-                  key={article.id}
-                  className={`grid grid-cols-12 gap-2 px-4 py-3 border-b border-hud-border-secondary text-sm hover:bg-hud-bg-hover/50 transition-colors ${selectedItems.has(article.id) ? 'bg-hud-accent-primary/10' : 'bg-hud-bg-primary'
-                    }`}
-                >
-                  <div className="col-span-1 flex items-center">
-                    <button
-                      onClick={() => toggleSelectItem(article.id)}
-                      className="p-1 hover:bg-hud-bg-hover rounded"
-                    >
-                      {selectedItems.has(article.id) ? (
-                        <CheckSquare className="w-4 h-4 text-hud-accent-primary" />
-                      ) : (
-                        <Square className="w-4 h-4 text-hud-text-muted" />
-                      )}
-                    </button>
+              {/* 테이블 바디 */}
+              <div className="max-h-[calc(100vh-350px)] overflow-y-auto">
+                {currentArticles.map((article) => (
+                  <div
+                    key={article.id}
+                    className={`grid grid-cols-12 gap-0 px-4 py-3 border-b border-hud-border-secondary text-sm hover:bg-hud-bg-hover/50 transition-colors ${selectedItems.has(article.id) ? 'bg-hud-accent-primary/10' : 'bg-hud-bg-primary'
+                      }`}
+                  >
+                    <div className="col-span-1 flex items-center border-r border-hud-border-secondary px-2">
+                      <button
+                        onClick={() => toggleSelectItem(article.id)}
+                        className="p-1 hover:bg-hud-bg-hover rounded"
+                      >
+                        {selectedItems.has(article.id) ? (
+                          <CheckSquare className="w-4 h-4 text-hud-accent-primary" />
+                        ) : (
+                          <Square className="w-4 h-4 text-hud-text-muted" />
+                        )}
+                      </button>
+                    </div>
+                    <div className="col-span-2 px-2 border-r border-hud-border-secondary">
+                      <p className="truncate text-hud-text-primary" title={article.complexName || article.buildingName}>
+                        {article.complexName || article.buildingName || '-'}
+                      </p>
+                      <p className="text-xs text-hud-text-muted truncate" title={article.articleName}>
+                        {article.articleName}
+                      </p>
+                    </div>
+                    <div className="col-span-1 px-2 border-r border-hud-border-secondary">
+                      <span className="text-xs text-hud-text-secondary">
+                        {PROPERTY_TYPES.find((t) => t.code === article.realEstateTypeCode)?.label || article.realEstateTypeName || '-'}
+                      </span>
+                    </div>
+                    <div className="col-span-1 px-2 border-r border-hud-border-secondary">
+                      <span className={`inline-flex px-1.5 py-0.5 text-xs rounded ${article.tradeTypeCode === 'A1'
+                        ? 'bg-red-100 text-red-700'
+                        : article.tradeTypeCode === 'B1'
+                          ? 'bg-green-100 text-green-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                        }`}>
+                        {article.tradeTypeName}
+                      </span>
+                    </div>
+                    <div className="col-span-1 px-2 border-r border-hud-border-secondary text-hud-accent-primary font-medium">
+                      {formatPrice(article.dealOrWarrantPrc)}
+                    </div>
+                    <div className="col-span-1 px-2 border-r border-hud-border-secondary text-hud-text-secondary">
+                      {article.rentPrc ? `${article.rentPrc}만` : '-'}
+                    </div>
+                    <div className="col-span-1 px-2 border-r border-hud-border-secondary text-hud-text-secondary">
+                      <span>{article.area1 || '-'}㎡</span>
+                    </div>
+                    <div className="col-span-1 px-2 border-r border-hud-border-secondary text-hud-text-secondary">
+                      {parseFloor(article.floorInfo)}
+                    </div>
+                    <div className="col-span-1 px-2 border-r border-hud-border-secondary text-hud-text-secondary text-xs">
+                      {new Date(article.savedAt).toLocaleString('ko-KR', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </div>
+                    <div className="col-span-1 px-2 flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => deleteItem(article.id)}
+                        className="p-1 text-hud-text-muted hover:text-hud-accent-danger"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
-                  <div className="col-span-2">
-                    <p className="truncate text-hud-text-primary" title={article.complexName || article.buildingName}>
-                      {article.complexName || article.buildingName || '-'}
-                    </p>
-                    <p className="text-xs text-hud-text-muted truncate" title={article.articleName}>
-                      {article.articleName}
-                    </p>
+                ))}
+              </div>
+
+              {/* 페이징 */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between px-4 py-3 bg-hud-bg-secondary border-t border-hud-border-secondary">
+                  <div className="text-sm text-hud-text-muted">
+                    {startIndex + 1}-{Math.min(endIndex, processedArticles.length)} / {processedArticles.length}
                   </div>
-                  <div className="col-span-1">
-                    <span className="text-xs text-hud-text-secondary">
-                      {PROPERTY_TYPES.find((t) => t.code === article.realEstateTypeCode)?.label || article.realEstateTypeName || '-'}
-                    </span>
-                  </div>
-                  <div className="col-span-1">
-                    <span className={`inline-flex px-1.5 py-0.5 text-xs rounded ${article.tradeTypeCode === 'A1'
-                      ? 'bg-red-100 text-red-700'
-                      : article.tradeTypeCode === 'B1'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-yellow-100 text-yellow-700'
-                      }`}>
-                      {article.tradeTypeName}
-                    </span>
-                  </div>
-                  <div className="col-span-1 text-hud-accent-primary font-medium">
-                    {formatPrice(article.dealOrWarrantPrc)}
-                  </div>
-                  <div className="col-span-1 text-hud-text-secondary">
-                    {article.rentPrc ? `${article.rentPrc}만` : '-'}
-                  </div>
-                  <div className="col-span-1 text-hud-text-secondary">
-                    <span>{article.area1 || '-'}㎡</span>
-                  </div>
-                  <div className="col-span-1 text-hud-text-secondary">
-                    {parseFloor(article.floorInfo)}
-                  </div>
-                  <div className="col-span-1 text-hud-text-secondary text-xs">
-                    {new Date(article.savedAt).toLocaleString('ko-KR', {
-                      year: 'numeric',
-                      month: '2-digit',
-                      day: '2-digit',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                  </div>
-                  <div className="col-span-1 flex items-center gap-1">
+                  <div className="flex items-center gap-1">
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => deleteItem(article.id)}
-                      className="p-1 text-hud-text-muted hover:text-hud-accent-danger"
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <ChevronLeft className="w-4 h-4" />
+                    </Button>
+                    <span className="text-sm text-hud-text-primary px-3">
+                      {currentPage} / {totalPages}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      <ChevronRight className="w-4 h-4" />
                     </Button>
                   </div>
                 </div>
-              ))}
+              )}
             </div>
-
-            {/* 페이징 */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 bg-hud-bg-secondary border-t border-hud-border-secondary">
-                <div className="text-sm text-hud-text-muted">
-                  {startIndex + 1}-{Math.min(endIndex, processedArticles.length)} / {processedArticles.length}
-                </div>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </Button>
-                  <span className="text-sm text-hud-text-primary px-3">
-                    {currentPage} / {totalPages}
-                  </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </Button>
-                </div>
-              </div>
-            )}
           </>
         )}
       </HudCard>

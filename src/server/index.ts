@@ -383,7 +383,7 @@ app.get('/api/articles', async (c) => {
 
 /**
  * GET /api/complexes
- * 단지 목록 조회
+ * 단지 목록 조회 (가격 정보 포함)
  */
 app.get('/api/complexes', async (c) => {
   try {
@@ -412,11 +412,14 @@ app.get('/api/complexes', async (c) => {
     const latDelta = 0.02 / Math.pow(2, zoomLevel - 14);
     const lonDelta = 0.03 / Math.pow(2, zoomLevel - 14);
 
+    const tradeType = (c.req.query('tradeType') as any) || 'A1';
+    const realEstateType = (c.req.query('realEstateType') as any) || 'APT';
+
     const { default: naverLandClient } = await import('../lib/scraper/naver-client');
     const response = await naverLandClient.getComplexMarkers({
       cortarNo,
-      realEstateType: (c.req.query('realEstateType') as any) || 'APT',
-      tradeType: (c.req.query('tradeType') as any) || 'A1',
+      realEstateType,
+      tradeType,
       zoom: zoomLevel,
       leftLon: centerLon - lonDelta,
       rightLon: centerLon + lonDelta,
@@ -472,12 +475,61 @@ app.get('/api/complexes', async (c) => {
       }
     }
 
-    // response가 배열인 경우 complexMarkerList로 감싸서 반환
-    if (Array.isArray(response)) {
-      return c.json({ complexMarkerList: response });
+    // 가격 정보 조회: 매물이 있는 단지들의 대표 가격 가져오기
+    const complexList = Array.isArray(response) ? response : (response.complexMarkerList || []);
+    const complexesWithArticles = complexList.filter((cx: any) => cx.totalArticleCount > 0);
+
+    console.log(`[Complexes] 총 ${complexList.length}개 단지, 매물 있는 단지: ${complexesWithArticles.length}개`);
+
+    // 단지별 대표 가격 정보 조회 (병렬로 최대 5개씩)
+    const enrichedPrices: Record<string, { price: string; tradeType: string; tradeTypeCode: string; rentPrc?: string; area?: number }> = {};
+
+    const BATCH_SIZE = 5;
+    for (let i = 0; i < complexesWithArticles.length; i += BATCH_SIZE) {
+      const batch = complexesWithArticles.slice(i, i + BATCH_SIZE);
+      const promises = batch.map(async (cx: any) => {
+        try {
+          const articlesResp = await naverLandClient.getComplexArticles(cx.markerId, {
+            realEstateType: realEstateType === 'APT' ? 'APT:PRE' : 'OPST',
+            tradeType: '',  // 거래유형 필터 없이 모든 매물 조회
+            page: 1,
+            order: 'prcAsc',  // 낮은 가격순으로 대표 가격
+          });
+          if (articlesResp.articleList && articlesResp.articleList.length > 0) {
+            const firstArticle = articlesResp.articleList[0];
+            enrichedPrices[cx.markerId] = {
+              price: firstArticle.dealOrWarrantPrc,
+              tradeType: firstArticle.tradeTypeName,
+              tradeTypeCode: firstArticle.tradeTypeCode,
+              rentPrc: firstArticle.rentPrc,
+              area: firstArticle.area2 || firstArticle.area1,
+            };
+            console.log(`[Price] ${cx.complexName}: ${firstArticle.tradeTypeName} ${firstArticle.dealOrWarrantPrc}`);
+          } else {
+            console.log(`[Price] ${cx.complexName}: 매물 0건 (markerId: ${cx.markerId})`);
+          }
+        } catch (err: any) {
+          console.error(`[Price ERROR] ${cx.complexName} (${cx.markerId}):`, err?.message || err);
+        }
+      });
+      await Promise.all(promises);
     }
 
-    return c.json(response);
+    console.log(`[Complexes] 가격 조회 완료: ${Object.keys(enrichedPrices).length}/${complexesWithArticles.length}개 성공`);
+
+    // 단지 목록에 가격 정보 추가
+    const enrichedComplexList = complexList.map((cx: any) => ({
+      ...cx,
+      ...(enrichedPrices[cx.markerId] ? {
+        representativePrice: enrichedPrices[cx.markerId].price,
+        representativeTrade: enrichedPrices[cx.markerId].tradeType,
+        representativeTradeCode: enrichedPrices[cx.markerId].tradeTypeCode,
+        representativeRentPrc: enrichedPrices[cx.markerId].rentPrc,
+        representativeArea: enrichedPrices[cx.markerId].area || cx.representativeArea,
+      } : {}),
+    }));
+
+    return c.json({ complexMarkerList: enrichedComplexList });
   } catch (error) {
     console.error('Complexes fetch error:', error);
     return c.json(
@@ -1640,10 +1692,144 @@ app.get('/api/proxy/kakao-map', async (c) => {
   }
 });
 
-// Bun 서버용 내보내기
-export default {
-  port: 3001,
-  hostname: '0.0.0.0', // 모든 인터페이스에서 듣기 (tplinkdns.com 접속 허용)
-  fetch: app.fetch,
-  idleTimeout: 120, // 2분 타임아웃
+// ============================================
+// 글로벌 테마 설정 (모든 사용자 공유)
+// ============================================
+
+import { readFileSync, writeFileSync, existsSync } from 'fs';
+import { join } from 'path';
+
+const GLOBAL_THEME_FILE = join(process.cwd(), 'global-theme.json');
+
+const DEFAULT_GLOBAL_THEME = {
+  mode: 'dark',
+  accentColor: 'cyan',
+  fontSize: 'medium',
+  borderRadius: 'medium',
+  compactMode: false,
 };
+
+function loadGlobalTheme() {
+  try {
+    if (existsSync(GLOBAL_THEME_FILE)) {
+      const data = readFileSync(GLOBAL_THEME_FILE, 'utf-8');
+      return { ...DEFAULT_GLOBAL_THEME, ...JSON.parse(data) };
+    }
+  } catch (e) {
+    console.error('Failed to load global theme:', e);
+  }
+  return { ...DEFAULT_GLOBAL_THEME };
+}
+
+function saveGlobalTheme(theme: any) {
+  try {
+    writeFileSync(GLOBAL_THEME_FILE, JSON.stringify(theme, null, 2), 'utf-8');
+    return true;
+  } catch (e) {
+    console.error('Failed to save global theme:', e);
+    return false;
+  }
+}
+
+/**
+ * GET /api/global-theme
+ * 글로벌 테마 조회
+ */
+app.get('/api/global-theme', (c) => {
+  const theme = loadGlobalTheme();
+  return c.json(theme);
+});
+
+/**
+ * PUT /api/global-theme
+ * 글로벌 테마 저장
+ */
+app.put('/api/global-theme', async (c) => {
+  try {
+    const body = await c.req.json();
+    const { themeMode, accentColor, fontSize, borderRadius, compactMode } = body;
+
+    const currentTheme = loadGlobalTheme();
+
+    if (themeMode) currentTheme.mode = themeMode;
+    if (accentColor) currentTheme.accentColor = accentColor;
+    if (fontSize) currentTheme.fontSize = fontSize;
+    if (borderRadius) currentTheme.borderRadius = borderRadius;
+    if (typeof compactMode === 'boolean') currentTheme.compactMode = compactMode;
+
+    if (saveGlobalTheme(currentTheme)) {
+      console.log('[Global Theme] 저장:', JSON.stringify(currentTheme));
+      return c.json({ success: true, theme: currentTheme });
+    } else {
+      return c.json({ error: '테마 저장 실패' }, 500);
+    }
+  } catch (error) {
+    console.error('Global theme save error:', error);
+    return c.json({ error: '테마 저장 실패' }, 500);
+  }
+});
+
+// ============================================
+// 프로덕션: 정적 파일 서빙 (Vite 빌드 결과물)
+// ============================================
+// (existsSync, join은 위에서 이미 import됨)
+
+const DIST_DIR = join(process.cwd(), 'dist');
+const isProduction = process.env.NODE_ENV === 'production';
+
+if (isProduction && existsSync(DIST_DIR)) {
+  console.log(`[Static] Serving frontend from: ${DIST_DIR}`);
+
+  // 정적 파일 서빙 (CSS, JS, 이미지 등)
+  app.get('/assets/*', async (c) => {
+    const filePath = join(DIST_DIR, c.req.path);
+    if (existsSync(filePath)) {
+      const content = readFileSync(filePath);
+      const ext = filePath.split('.').pop() || '';
+      const mimeTypes: Record<string, string> = {
+        js: 'application/javascript',
+        css: 'text/css',
+        html: 'text/html',
+        json: 'application/json',
+        png: 'image/png',
+        jpg: 'image/jpeg',
+        jpeg: 'image/jpeg',
+        svg: 'image/svg+xml',
+        ico: 'image/x-icon',
+        webp: 'image/webp',
+        woff: 'font/woff',
+        woff2: 'font/woff2',
+        ttf: 'font/ttf',
+      };
+      return new Response(content, {
+        headers: { 'Content-Type': mimeTypes[ext] || 'application/octet-stream' },
+      });
+    }
+    return c.notFound();
+  });
+
+  // SPA 폴백: API가 아닌 모든 경로는 index.html 반환
+  app.get('*', async (c) => {
+    if (c.req.path.startsWith('/api/')) {
+      return c.notFound();
+    }
+    const indexPath = join(DIST_DIR, 'index.html');
+    if (existsSync(indexPath)) {
+      const html = readFileSync(indexPath, 'utf-8');
+      return c.html(html);
+    }
+    return c.text('index.html not found', 404);
+  });
+}
+
+// Bun 서버용 내보내기
+const PORT = parseInt(process.env.PORT || '3001');
+export default {
+  port: PORT,
+  hostname: '0.0.0.0',
+  fetch: app.fetch,
+  idleTimeout: 120,
+};
+
+console.log(`[Server] Running on port ${PORT} (${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'})`);
+

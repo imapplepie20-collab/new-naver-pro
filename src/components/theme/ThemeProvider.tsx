@@ -21,7 +21,7 @@ const applyTheme = (
   root.classList.add(effectiveMode)
 
   // 강조 색상 적용
-  const accentConfig = ACCENT_COLORS[accentColor as 'cyan' | 'indigo' | 'pink' | 'orange' | 'green' | 'red']
+  const accentConfig = ACCENT_COLORS[accentColor as keyof typeof ACCENT_COLORS]
   root.style.setProperty('--hud-accent-primary', accentConfig.primary)
   root.style.setProperty('--hud-accent-info', accentConfig.info)
   root.style.setProperty('--hud-accent-warning', accentConfig.warning)

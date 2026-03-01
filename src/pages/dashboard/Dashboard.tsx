@@ -22,7 +22,7 @@ import StatCard from '../../components/common/StatCard';
 import Button from '../../components/common/Button';
 import PriceTrendChart from '../../components/real-estate/PriceTrendChart';
 
-const API_BASE = import.meta.env.VITE_API_BASE || window.location.protocol + '//' + window.location.hostname + ':3001';
+import { API_BASE } from '../../lib/api';
 
 interface StatData {
     totalProperties: number;

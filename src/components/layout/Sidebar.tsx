@@ -41,82 +41,82 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
     { title: 'Dashboard', icon: <LayoutDashboard size={20} />, path: '/' },
     { title: 'Analytics', icon: <BarChart3 size={20} />, path: '/analytics' },
+    // {
+    //     title: 'Email',
+    //     icon: <Mail size={20} />,
+    //     children: [
+    //         { title: 'Inbox', path: '/email/inbox' },
+    //         { title: 'Compose', path: '/email/compose' },
+    //         { title: 'Detail', path: '/email/detail/1' },
+    //     ],
+    // },
+    // { title: 'Widgets', icon: <Grid3X3 size={20} />, path: '/widgets' },
+    // {
+    //     title: 'AI Studio',
+    //     icon: <Sparkles size={20} />,
+    //     children: [
+    //         { title: 'AI Chat', path: '/ai/chat' },
+    //         { title: 'AI Image Generator', path: '/ai/image-generator' },
+    //     ],
+    // },
+    // {
+    //     title: 'POS System',
+    //     icon: <UtensilsCrossed size={20} />,
+    //     children: [
+    //         { title: 'Customer Order', path: '/pos/customer-order' },
+    //         { title: 'Kitchen Order', path: '/pos/kitchen-order' },
+    //         { title: 'Counter Checkout', path: '/pos/counter-checkout' },
+    //         { title: 'Table Booking', path: '/pos/table-booking' },
+    //         { title: 'Menu Stock', path: '/pos/menu-stock' },
+    //     ],
+    // },
+    // {
+    //     title: 'UI Kits',
+    //     icon: <Layers size={20} />,
+    //     children: [
+    //         { title: 'Bootstrap', path: '/ui/bootstrap' },
+    //         { title: 'Buttons', path: '/ui/buttons' },
+    //         { title: 'Cards', path: '/ui/card' },
+    //         { title: 'Icons', path: '/ui/icons' },
+    //         { title: 'Modal & Notification', path: '/ui/modal-notification' },
+    //         { title: 'Typography', path: '/ui/typography' },
+    //         { title: 'Tabs & Accordions', path: '/ui/tabs-accordions' },
+    //     ],
+    // },
+    // {
+    //     title: 'Forms',
+    //     icon: <FileText size={20} />,
+    //     children: [
+    //         { title: 'Form Elements', path: '/form/elements' },
+    //         { title: 'Form Plugins', path: '/form/plugins' },
+    //         { title: 'Form Wizards', path: '/form/wizards' },
+    //     ],
+    // },
+    // {
+    //     title: 'Tables',
+    //     icon: <Table size={20} />,
+    //     children: [
+    //         { title: 'Table Elements', path: '/table/elements' },
+    //         { title: 'Table Plugins', path: '/table/plugins' },
+    //     ],
+    // },
+    // {
+    //     title: 'Charts',
+    //     icon: <PieChart size={20} />,
+    //     children: [
+    //         { title: 'Chart.js', path: '/chart/chartjs' },
+    //     ],
+    // },
+    // { title: 'Scrum Board', icon: <Kanban size={20} />, path: '/scrum-board' },
+    // { title: 'Products', icon: <ShoppingBag size={20} />, path: '/products' },
+    // { title: 'Pricing', icon: <DollarSign size={20} />, path: '/pricing' },
+    // { title: 'Gallery', icon: <Image size={20} />, path: '/gallery' },
     {
-        title: 'Email',
-        icon: <Mail size={20} />,
-        children: [
-            { title: 'Inbox', path: '/email/inbox' },
-            { title: 'Compose', path: '/email/compose' },
-            { title: 'Detail', path: '/email/detail/1' },
-        ],
-    },
-    { title: 'Widgets', icon: <Grid3X3 size={20} />, path: '/widgets' },
-    {
-        title: 'AI Studio',
-        icon: <Sparkles size={20} />,
-        children: [
-            { title: 'AI Chat', path: '/ai/chat' },
-            { title: 'AI Image Generator', path: '/ai/image-generator' },
-        ],
-    },
-    {
-        title: 'POS System',
-        icon: <UtensilsCrossed size={20} />,
-        children: [
-            { title: 'Customer Order', path: '/pos/customer-order' },
-            { title: 'Kitchen Order', path: '/pos/kitchen-order' },
-            { title: 'Counter Checkout', path: '/pos/counter-checkout' },
-            { title: 'Table Booking', path: '/pos/table-booking' },
-            { title: 'Menu Stock', path: '/pos/menu-stock' },
-        ],
-    },
-    {
-        title: 'UI Kits',
-        icon: <Layers size={20} />,
-        children: [
-            { title: 'Bootstrap', path: '/ui/bootstrap' },
-            { title: 'Buttons', path: '/ui/buttons' },
-            { title: 'Cards', path: '/ui/card' },
-            { title: 'Icons', path: '/ui/icons' },
-            { title: 'Modal & Notification', path: '/ui/modal-notification' },
-            { title: 'Typography', path: '/ui/typography' },
-            { title: 'Tabs & Accordions', path: '/ui/tabs-accordions' },
-        ],
-    },
-    {
-        title: 'Forms',
-        icon: <FileText size={20} />,
-        children: [
-            { title: 'Form Elements', path: '/form/elements' },
-            { title: 'Form Plugins', path: '/form/plugins' },
-            { title: 'Form Wizards', path: '/form/wizards' },
-        ],
-    },
-    {
-        title: 'Tables',
-        icon: <Table size={20} />,
-        children: [
-            { title: 'Table Elements', path: '/table/elements' },
-            { title: 'Table Plugins', path: '/table/plugins' },
-        ],
-    },
-    {
-        title: 'Charts',
-        icon: <PieChart size={20} />,
-        children: [
-            { title: 'Chart.js', path: '/chart/chartjs' },
-        ],
-    },
-    { title: 'Scrum Board', icon: <Kanban size={20} />, path: '/scrum-board' },
-    { title: 'Products', icon: <ShoppingBag size={20} />, path: '/products' },
-    { title: 'Pricing', icon: <DollarSign size={20} />, path: '/pricing' },
-    { title: 'Gallery', icon: <Image size={20} />, path: '/gallery' },
-    {
-        title: 'Real Estate',
+        title: '네이버 부동산 데이터',
         icon: <Building2 size={20} />,
         children: [
             { title: '매물 검색', path: '/real-estate' },
-            { title: '매물 목록', path: '/real-estate/regular-properties' },
+            { title: '정규 매물 목록', path: '/real-estate/regular-properties' },
         ],
     },
     { title: 'Profile', icon: <User size={20} />, path: '/profile' },
@@ -150,24 +150,32 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
 
     return (
         <aside
-            className={`fixed top-0 left-0 h-full bg-hud-bg-secondary border-r border-hud-border-secondary z-50 transition-all duration-300 ${collapsed ? 'w-20' : 'w-64'
+            className={`fixed top-0 left-0 h-full bg-hud-bg-secondary border-r border-hud-border-secondary z-50 transition-all duration-300 flex flex-col ${collapsed ? 'w-20' : 'w-64'
                 }`}
             style={{ boxShadow: 'var(--hud-shadow)' }}
         >
             {/* Logo */}
             <div className="h-16 flex items-center justify-center border-b border-hud-border-secondary">
                 <Link to="/" className="flex items-center gap-3">
-                    <div className="w-10 h-10 bg-gradient-to-br from-hud-accent-primary to-hud-accent-info rounded-lg flex items-center justify-center font-bold text-hud-bg-primary">
-                        H
+                    <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center bg-white">
+                        <img
+                            src="/logo.png"
+                            alt="집돌이 로고"
+                            className="h-[160%] w-auto max-w-none object-contain"
+                            style={{
+                                objectPosition: '0% 0%',
+                                transform: 'scale(.9)'
+                            }}
+                        />
                     </div>
                     {!collapsed && (
-                        <span className="font-semibold text-lg text-glow">집 돌이</span>
+                        <span className="font-semibold text-lg text-glow">집돌이9</span>
                     )}
                 </Link>
             </div>
 
             {/* Navigation */}
-            <nav className="py-4 overflow-y-auto h-[calc(100%-4rem)]">
+            <nav className="flex-1 py-4 overflow-y-auto min-h-0">
                 <ul className="space-y-1 px-3">
                     {menuItems.map((item) => (
                         <li key={item.title}>
@@ -232,7 +240,7 @@ const Sidebar = ({ collapsed }: SidebarProps) => {
             </nav>
 
             {/* User Section */}
-            <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-hud-border-secondary">
+            <div className="shrink-0 p-3 border-t border-hud-border-secondary">
                 <div className="flex items-center gap-3 px-3 py-2">
                     <div className="w-8 h-8 bg-gradient-to-br from-hud-accent-primary to-hud-accent-info rounded-lg flex items-center justify-center text-hud-bg-primary font-semibold text-sm">
                         {user?.name?.[0] || 'U'}
