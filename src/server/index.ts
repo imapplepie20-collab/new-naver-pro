@@ -728,17 +728,16 @@ app.get('/api/statistics/regions', async (c) => {
       maxPrice: number | null;
     }>>`
       SELECT
-        r.cortarNo,
-        r.cortarName,
-        COUNT(p.articleNo) as count,
-        COALESCE(AVG(p.dealOrWarrantPrc), 0) as avgPrice,
-        COALESCE(MIN(p.dealOrWarrantPrc), 0) as minPrice,
-        COALESCE(MAX(p.dealOrWarrantPrc), 0) as maxPrice
-      FROM Region r
-      LEFT JOIN Property p ON r.cortarNo = p.cortarNo
-      WHERE r.depth = 1 OR COUNT(p.articleNo) > 0
-      GROUP BY r.cortarNo, r.cortarName
-      HAVING COUNT(p.articleNo) > 0
+        r."cortarNo",
+        r."cortarName",
+        COUNT(p."articleNo") as count,
+        COALESCE(AVG(p."dealOrWarrantPrc"), 0) as "avgPrice",
+        COALESCE(MIN(p."dealOrWarrantPrc"), 0) as "minPrice",
+        COALESCE(MAX(p."dealOrWarrantPrc"), 0) as "maxPrice"
+      FROM regions r
+      LEFT JOIN properties p ON r."cortarNo" = p."cortarNo"
+      GROUP BY r."cortarNo", r."cortarName"
+      HAVING COUNT(p."articleNo") > 0
       ORDER BY count DESC
       LIMIT ${limit}
     `;
